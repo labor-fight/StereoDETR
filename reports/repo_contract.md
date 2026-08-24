@@ -282,13 +282,30 @@ FAIL baseline checkpoint absent at reports/r/r1_stereo_flip/epoch_012.pth    # �
 
 ### 7.2 R1 最终门 checkpoint — MISSING（唯一实质缺口）
 
-`reports/r/r1_stereo_flip/epoch_012.pth`，SHA256 `9e21d6c824199db3846e5d808aba43db9d85505da6ea41e1c34b03152b3561fa`，208,212,110 字节。搜索见 §2.4，判定丢失。
+`reports/r/r1_stereo_flip/epoch_012.pth`，SHA256 `9e21d6c824199db3846e5d808aba43db9d85505da6ea41e1c34b03152b3561fa`，208,212,110 字节。本地搜索见 §2.4，判定丢失。
 
 它挡住三件事：`p0_reeval_r1.py model` 的 identity 验证、`tests/episet4d/test_p0_receipt_contract.py` 的 13 项、以及任何以 R1 权重为起点的微调。
 
+#### 远端恢复路线已排查并排除
+
+有人提出该文件也许能从 `labor-fight/StereoDETR` 已删除的历史分支里恢复。逐条查证后结论是**不能，而且任何分支都不可能携带它**：
+
+| 检查 | 结果 |
+|---|---|
+| 远端全部 ref（SSH） | `git ls-remote --refs origin` 只返回一条 `refs/heads/main` → `0563b6d`。无其他分支 |
+| 远端 tags | `git ls-remote --tags origin` 为空 |
+| GitHub Releases | 每个 Release 必然绑定一个 tag；无 tag ⇒ 无 Release ⇒ 无 Release 附件。（仓库为 private，未认证 REST 返回 404，无法枚举；tag 这一条不需要认证即可闭合该可能） |
+| 全历史是否曾跟踪 `.pth` | `git log --all --diff-filter=A --name-only -- '*.pth'` 在 93 个提交、全部 ref 上**输出为空**；`'*.pkl'` 同样为空 |
+| `.gitignore` | 事件树第 48–49 行全仓库忽略 `*.pth` 与 `*.pkl`；第 133 行另忽略 `reports/episet4d/p0/restored/` |
+| 剪除清单的 `tracked` 列 | `epoch_012.pth` 一行为 **`no`** |
+| Git LFS | `git lfs ls-files` 为 0 |
+| 按 SHA 直取不可达对象 | 服务端拒绝（未开 `allowAnySHA1InWant`）。且 `9e21d6c8…` 是**文件内容的 SHA256，不是 git object id**，本就不构成可取的 ref |
+
+决定性的一条是「从未被跟踪」：**恢复一个已删除的分支只能恢复源码，不可能恢复一个从未进入过 git 的产物。** 208 MB 的 blob 在没有 LFS 的情况下也过不了 GitHub 的 100 MB 限制。因此远端恢复路线关闭，缺口只能按下面三条路线处理。
+
 最小恢复动作，按代价排序：
 
-1. **接受当前证据链**（零成本）。R1 的报告数字由「已验身份的预测 pickle + 身份已锁的评测器」复现，§5.2 给出 84/84 字段精确一致。若后续阶段只需要 R1 作为**数字基线**（R4 门写的是 `> 6.2552 / > 0.7787`，比的是数字不是权重），这已经足够。
+1. **接受当前证据链**（零成本）。R1 的报告数字由「已验身份的预测 pickle + 身份已锁的评测器」复现，§5.2 给出 84/84 字段精确一致。若后续阶段只需要 R1 作为**数字基线**（R4 门写的是 `> 6.2552 / > 0.7787`，比的是数字不是权重），这已经足够。**← 项目负责人 2026-08-24 采纳此路线，前置条件是远端恢复不可行，已由上表证实。**
 2. **重训 R1 臂**（12 epoch、4 卡、约数小时）。配置、seed（`20260812`）、`deterministic: true`、manifest 与 legacy 配置的 hash 全部锁定，具备可重训条件。但**重训结果不会 bit-identical**，得到的是新 artifact，需要重新登记 hash，并且不能声称等同于原 `epoch_012.pth`。
 3. **放弃以 R1 权重为初始化的任何设计**。若某后续阶段需要"从 R1 权重出发"，改为从 `epoch_011.pth`（身份已验）出发并明确记录这是第 11 而非第 12 个 epoch。
 
@@ -321,19 +338,24 @@ FAIL baseline checkpoint absent at reports/r/r1_stereo_flip/epoch_012.pth    # �
 | # | 判据 | 证据 | 判定 |
 |---|---|---|---|
 | 1 | 找到产生事件实验的真实源码与配置 | `9446413`（84 个独有提交）；`configs/dsec3dod/r1_stereo_flip.yaml` = `0579d583…`；103 个 `lib` 模块全部可导入；16 个 yaml 在拒绝重复键的严格 loader 下全部解析 | **PASS** |
-| 2 | 找到或明确恢复 checkpoint | 001–011 全部按归档清单逐 hash 一致并 strict 加载（674/674 键、18,405,547 参数）；**`epoch_012.pth` 确认丢失**，恢复路线见 §7.2 | **PARTIAL** |
+| 2 | 找到或明确恢复 checkpoint | 001–011 全部按归档清单逐 hash 一致并 strict 加载（674/674 键、18,405,547 参数）；**`epoch_012.pth` 确认丢失且远端恢复已排除**（§7.2），按裁决以「预测 + 评测器」复现链替代 | **PARTIAL，已裁决接受** |
 | 3 | evaluator 与历史身份一致 | 5/5 fingerprint 覆盖文件 hash 精确一致，另 4 个评测路径文件一并登记；官方 val infos hash 与 fingerprint 一致；评测器源码未改 | **PASS** |
 | 4 | 能复现 R1 关键数字 | 84/84 字段在 `1e-9` 内一致，6 个门字段（含 `6.2552` / `0.1896`）转录容差内全部复现；`tests/dsec3dod` 84 项全通过 | **PASS** |
 | 5 | 文档、源码、配置、checkpoint 四者 hash 已锁定 | §2 全表；`main` HEAD、事件树 HEAD、两份文档、manifest、四份归档清单、bundle 均已登记 SHA256 | **PASS** |
 
-**阶段判定：`PASS_WITH_ONE_MISSING_ARTIFACT`。** 五条中四条 PASS，第 2 条 PARTIAL，且该 PARTIAL 是单点缺口 —— 它同时是 13 个测试 error 的唯一原因（§5.1），不牵涉代码漂移、协议漂移或数据漂移。
+**阶段判定：`PASS`（记录为 `PASS_WITH_ONE_MISSING_ARTIFACT`）。** 五条中四条 PASS，第 2 条 PARTIAL 但已裁决接受。该 PARTIAL 是单点缺口 —— 它同时是 13 个测试 error 的唯一原因（§5.1），不牵涉代码漂移、协议漂移或数据漂移。
 
-裁决权归项目负责人，两条路由都合法：
+裁决过程留档，因为它决定了后续阶段能引用什么：
 
-- **判 PASS 继续 R1**：理由是"R1 关键数字可复现"这一条已由「身份已验的预测 + 身份已锁的评测器」独立满足（§5.2），而后续阶段的门写的是数字而非权重；把 `epoch_012.pth` 记入 §7.2 缺口清单随行。
-- **判 FAIL 先重训 R1**：理由是严格读"找到或明确恢复 checkpoint"要求 artifact 在手；代价是 12 epoch 重训，且产物不会 bit-identical，需重新登记 hash 并放弃与原 artifact 的等同主张。
+1. 先排查远端恢复。`epoch_012.pth` 从未进入 git，远端只有一条 `refs/heads/main`、无 tag 因而无 Release 附件，恢复已删除分支只能恢复源码 —— 路线关闭（§7.2）。
+2. 项目负责人据此采纳"接受当前证据链"：**"R1 关键数字可复现"由「身份已验的预测 pickle + 身份已锁的评测器」独立满足**（§5.2，84/84 字段在 `1e-9` 内一致），而后续阶段的门写的是数字而非权重（R4 门为 `> 6.2552 / > 0.7787`）。
+3. 被放弃的路线是 12 epoch 重训。它代价高，且产物不会 bit-identical —— 会得到一个需要重新登记 hash 的新 artifact，无法声称等同于原件，因此换不来 identity。
 
-R0 不替这个选择做决定。**未获裁决前不开始 EpiMotion4D 的模型代码。**
+随之而来的三条约束，后续阶段必须遵守：
+
+- **不得声称任何权重与 R1 的原 artifact 同一。** 需要"从 R1 权重出发"时改用 `epoch_011.pth`（身份已验）并显式标注这是第 11 而非第 12 个 epoch。
+- **R1 只能作为数字基线引用**，引用时指向 §5.2 的复现表，而不是指向一个 checkpoint 文件。
+- `tests/episet4d/test_p0_receipt_contract.py` 的 13 项在缺口补上之前持续 error，这是**已知且已归因**的状态，不得被读作新的回归。
 
 ---
 
