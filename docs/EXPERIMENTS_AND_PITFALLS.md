@@ -1,6 +1,6 @@
 # StereoDETR / REP4D / EPiSet4D 实验与踩坑总档案
 
-状态：**EPiSet4D 路线冻结于 2026-08-23，在 Gate D1 停止；后继路线 EPST-4D 于 2026-08-24 在其第一个门 D2 停止，主干从未实现，D3–D8 记 `CLOSED_BY_D2`。当前没有任何训练授权，路由为 `FIX_DATA_CALIBRATION_PRETRAIN`。** 本文是面向复盘、交接与复现的单一入口，汇总已经执行的实验、决定性数字、失败路由、实现事故和长期约束。原始预注册、机器收据和专项文档仍是逐字段的权威来源；如本文与机器 JSON 冲突，以机器 JSON 为准。
+状态（2026-08-27 更新）：**EPiSet4D 路线冻结于 2026-08-23，在 Gate D1 停止；EPST-4D 于 2026-08-24 在其第一个门 D2 停止，主干从未实现，D3–D8 记 `CLOSED_BY_D2`。2026-08-24/25 的 R1' 零训练审计推翻了 D2 探针的真值判据（C76），D2 判定降级为 `SUSPECT_RIG_ARTIFACT`，路由 `FIX_DATA_CALIBRATION_PRETRAIN` 的"标定/数据修复"子项记 `CLOSED_CLEAN`，直接事件特征路线解禁。2026-08-25/26 的 A 系列三个训练臂（A1 hybrid matching、A2 SEIT、A3 联合）全部未过门，A3 触发 `KILL`（Vehicle strict 相对 R1 −36.8%，C82）。当前活跃路线是 EpiTube4D，其 Phase 0（继承仓库合同）于 2026-08-26 判 PASS，第一个 kill 点是 Phase 2 的聚合 AUC ≥0.95；除此之外没有任何训练授权。** 本文是面向复盘、交接与复现的单一入口，汇总已经执行的实验、决定性数字、失败路由、实现事故和长期约束。原始预注册、机器收据和专项文档仍是逐字段的权威来源；如本文与机器 JSON 冲突，以机器 JSON 为准。
 
 2026-08-24 起，`docs/` 目录单文件化：全部其余文档逐字并入本文后删除（Git 历史保留原件）。任何旧文档、收据或源码注释中出现的下列路径，一律读对应附录：
 
@@ -23,6 +23,18 @@
 
 附录 B–N 均为逐字并入：仅移除原文件顶部标题、其余标题整体降一级（代码块内容不动），并入时逐份做过逆变换字节校验。预注册类附录（G–N）在原文件中即为不可变文档，并入后同样只读；它们内部的互相引用与指向 `reports/` 的路径按原样保留。
 
+2026-08-27 合入三个 debug session（`b2baf3` R1' 审计、`522f14` A 系列、`5fd9ba` EpiTube4D Phase 0）的产出：**踩坑条目 C76–C82 逐条进附录 B（第 9 节），实验读数与路由进第 2–3 节。** 与 2026-08-24 那批不同，这次**不删除**原件：`docs/proposals/` 下的会话文档保留为逐字原件（事实优先级高于本汇总，见第 7 节），因为当前活跃路线的主控文档正在引用它们——按 C75 的教训，合并文档时制造死链的代价比多留一个入口更高。对应关系：
+
+| `docs/proposals/` 会话文档 | 内容 | 本文位置 |
+|---|---|---|
+| `C76_C77_LEDGER_ENTRIES_DRAFT.md` | 探针判据缺陷、三个修复靶点的零训练确认、D2 结论修订案 | §3.6、附录 B C76/C77 |
+| `P2B_HYBRID_MATCHING_PREREG_DRAFT.md` | A1 臂预注册（一对多混合匹配） | §3.7 |
+| `SEIT_PREREG_DRAFT.md` | A2 臂预注册（立体一致事件实例移植） | §3.7 |
+| `A1_A2_RESULTS_AND_DEBUG_CONCLUSIONS.md` | A1/A2 读数、5 条被否决假设、6 个实现缺陷、H4 未决 | §3.7 |
+| `A3_RESULTS_AND_DEBUG_CONCLUSIONS.md` | A3 的 KILL 判定与 oracle 归因 | §3.7、附录 B C82 |
+| `C78_C82_LEDGER_ENTRIES_DRAFT.md` | C78–C82 条目全文与 runId 索引 | 附录 B C78–C82 |
+| `EPITUBE4D_EXECUTION_PLAN_V2_DRAFT.md`、`EPITUBE4D_CODEX_PROMPTS_V2_DRAFT.md` | 当前活跃路线的主控 runbook 与逐阶段提示词（**活文档，不并入本文**） | §3.8 |
+
 ## 1. 当前结论
 
 项目已经完成 Phase A–C、REP4D C0–C7、Phase R、EPiSet4D P0/P1/T1/D1，以及 EPST-4D 的 D2。P2/P3 被 Gate P1 合法关闭；Q1 的动机在预注册前被测量删除；D1 完成 4 卡、12 epoch、7,884 step 训练后判定 **FAIL**，路由为 `STOP_VEHICLE_REGRESSION`；D2 是零训练诊断阶段，判定 **FAIL**，路由为 `FIX_DATA_CALIBRATION_PRETRAIN`。因此 P4–P8 与 D3–D8 都没有获得执行授权，不能继续训练，也不能通过调权重、改阈值或同 seed 重跑绕过门。
@@ -33,10 +45,16 @@
 2. 训练集三类都已饱和，问题发生在 train→val 迁移；行人比车辆严重得多。
 3. T1 用实例身份解释了这种类别差异：train 只有约 134 个行人和 13 个骑行者，而车辆有 562 个。
 4. D1 检验“稠密共享权重归纳偏置是否更能利用少量身份”。它显著提高了 Ped 3D/2D，但同时伤害 Vehicle 3D、Ped proposal recall 和 Vehicle oracle ceiling，联合门失败。
-5. D2 检验后继路线赌的那一件事——事件直连特征能否让逐点立体对应可用。**不能。** 带正控制（合成 AUC `1.0000`，C3 当年缺的正是这一环）的真实数据探针在 `K=9` 只到 `0.3590`，比 C3 自己的 `73.1%` 还低 `0.372`，离 C52 的 `0.95` 与让步后的 `0.90` 都不接近。同时排除了"证据不够"这个解释：60.8% 的支持点落在非空 voxel 上。
-6. 负结果已正式落档。当前没有获授权的下一训练臂，也没有达到对 EvStereo3D 或 SOTA 的声明标准；按 D2 路由，剩下的方向是数据、标定与预训练。
+5. D2 检验后继路线赌的那一件事——事件直连特征能否让逐点立体对应可用。当时的读数是"不能"：带正控制（合成 AUC `1.0000`，C3 当年缺的正是这一环）的真实数据探针在 `K=9` 只到 `0.3590`，比 C3 自己的 `73.1%` 还低 `0.372`，离 C52 的 `0.95` 与让步后的 `0.90` 都不接近。同时排除了"证据不够"这个解释：60.8% 的支持点落在非空 voxel 上。
+6. **这个结论在 2026-08-24/25 被推翻在判据上，不是在数字上（C76）。** 立体匹配发生在物体可见表面，而 D2 与初版探针拿 box 几何中心的 `fB/Z` 当真值视差，偏差约 `fB·(l/2)/Z²`（569×0.599 的标定下，10 m 处车差 8 px 以上）。独立重写的审计装置换成 8 角点表面带判据后，同一批数据上 train 带命中 `0.414→0.631`、0–10 m 桶 `0.000→0.778`，深度趋势从"近处更差"反转为物理正常，车的隐含表面偏移中值 2.18 m ≈ 真实车半长（机制指纹）。D2 判定因此降级为 `SUSPECT_RIG_ARTIFACT`，标定/数据子项记 `CLOSED_CLEAN`，直连事件路线解禁。**但 `0.3590` 本身既没有被复现也没有被反驳：D2 装置从未进入 git、现已不在磁盘（R0 §7.1），它只能作为文字记录引用。** C52/C69 的聚合后 ~0.95 复活线不变。
+7. 三个修复靶点随即在零训练下被确认（C77、C79）：oracle 重排序把 Vehicle strict 从 6.26 抬到 11.39，**已经高于 EvStereo3D 公开 checkpoint 的 8.02**，说明车的缺口整个落在打分/排序内；立体一致的事件实例移植（SEIT）物理可行，移植后表面带命中 0.75–1.00，不低于真实行人基准 0.667/0.778；10–20 m 行人的物体级事件视差用朴素 ZNCC 即达 0.203 px，逐框容差 0.489 px，即行人 strict 需要的亚像素精度在这一段物理可达——而 20–30 m 需要 0.13 px、实测 0.55 px，物理接近不可达。
+8. A 系列三个训练臂把这些证据变成了三次门失败，但每次都缩小了根因（§3.7）。决定性的分解口径是 **strict AP = oracle 天花板 × 排序效率**（oracle = 同一批框把置信度换成真实 3D IoU 重排，效率 = 模型 AP ÷ oracle AP）：A1 砍掉天花板（Veh oracle −32.7%）而效率分毫未动，A2 守住天花板（−2.6%）而效率 −17.9%，A3 联合后 Vehicle strict 相对 R1 −36.8% 触发 KILL。同一个 AP 损失可以是两种病，只看 AP 必然误诊。
+9. A3 的 oracle 读数是目前最有价值的一条定位：**同一批预测框、把置信度换成官方 3D IoU 重排，行人 strict 是 3.653，与 EvStereo3D 公开 checkpoint 的 3.6448 同量级**；车辆 oracle 7.818 也贴着 8.022。框集合里已经存在竞品量级的检出，被模型分数压到了 0.943 / 3.954（紧覆盖车辆框的中位分数 `0.547→0.129`）。行人与车辆的第一瓶颈现在都指向打分，不是框。
+10. 当前活跃路线是 EpiTube4D（§3.8），Phase 0 判 PASS，第一个 kill 点是 Phase 2 的聚合 AUC ≥0.95。**项目仍然没有任何三 seed 结果，没有越过 `G-public`/`G-paper`/`G-SOTA` 中的任何一门，不得声称 SOTA 或对 EvStereo3D 的优势。**
 
 一条方法论上的收获值得单列：**D2 是本项目第一个先建正控制再读真实数字的阶段**，而它立刻付了成本——正控制通过、真实数据不通过，于是结论是可信的负结果而不是"可能是仪器坏了"。C3 当年缺这一步，代价是 73.1% 这个数字五个月里既不能用来否定机制也不能用来支持它。
+
+C76 随后给这条收获加了一个必须记住的补丁：**正控制通过不代表判据正确。** D2 的合成正控制之所以能打到 1.0000，是因为合成位移相对的是同一个（错位的）真值定义——判据错位对正控制不可见，正控制只能证明"装置能检出它自己定义的信号"。因此正负控制之外还需要一条独立的**机制指纹**：C76 能定案，靠的是"车的隐含表面偏移中值 2.18 m ≈ 车半长 2.2 m"这个与判据无关的物理量出现在它该出现的位置。
 
 一个重要的历史更正：早期文档曾因 train/val 共享 21 个 base drive 而称 val 不是跨场景测试。T1 证明该推断错误：train 140 个 chunk、val 38 个 chunk，二者没有共享 chunk；val chunk 到同 drive 最近 train chunk 的最小时间间隔为 **8.600341 s**。同 drive 不等于同场景，50 ms 窗口的 80% 相邻样本重叠也从不跨 split 边界。
 
@@ -53,9 +71,26 @@
 | C2-A3，A2 关闭 decoupled ray | 1.8505 | 0.0792 | 13.6876 | 1.2478 | 11.1825 | 7.7448 | Gate FAIL |
 | R1，control + stereo mirror | **6.2552** | **0.1896** | **25.2045** | **1.5205** | **16.1715** | 5.7552 | 最强内部基线，联合 Gate FAIL |
 | D1，dense training-only head | **5.4986** | **0.7787** | — | — | — | **9.0035** | `STOP_VEHICLE_REGRESSION` |
+| A1，hybrid matching（2026-08-25） | 4.2104 | 0.7218 | — | — | — | — | Gate FAIL，砍掉天花板 |
+| A2，SEIT 事件实例移植（2026-08-25） | 5.0090 | 0.6686 | — | — | — | — | Gate FAIL，砍掉排序效率 |
+| A3，A1+A2 联合（2026-08-26） | 3.9536 | **0.9430** | **25.6640** | **4.5480** | **19.5130** | **11.1030** | **KILL**，Veh 相对 R1 −36.8% |
 | EvStereo3D public checkpoint | 8.0215 | 3.6448 | 42.0074 | 12.9412 | — | — | 外部参考，不是已越过的门 |
 
+命名冲突提醒：上表的 `A1/A2/A3` 是 2026-08-25/26 的 A 系列训练臂，与 REP4D 时期的 `C2-A1/A2/A3`（query birth 三臂）**不是同一组实验**，引用时必须带前缀。A1/A2 只落了 strict 3D 与诊断字段，未跑 loose/2D 全套，故留 `—`；这是"未测量"，不是零。
+
 EvStereo3D 论文数字与公开产物必须分开报告：公开 checkpoint 是 epoch 22，而论文称 60 epoch；公开权重缺 35 个 `dense_head_2d.*` 张量，私有 voxel 产物也不可得。固定评测器下，公开 checkpoint 的 strict R40 为 8.0215/3.6448，不能把论文数字冒充可复现的公开 checkpoint 数字。
+
+自 A 系列起，任何臂的读数必须同时给 **oracle 天花板**与**排序效率**两列（C62 的比值纪律在 AP 上的应用）：oracle 用真实 3D IoU 替换置信度对同一批框重排，因此天花板衡量提案质量、效率衡量排序能力，两者相乘才是 AP。
+
+| arm | Veh 模型 | Veh oracle | Veh 效率 | Ped 模型 | Ped oracle | Ped 效率 |
+|---|---:|---:|---:|---:|---:|---:|
+| R1（基线） | 6.2552 | 11.3907 | 0.549 | 0.1896 | 1.8659 | 0.102 |
+| A1（hybrid matching） | 4.2104 | 7.6704 | 0.549 | 0.7218 | 2.5632 | 0.282 |
+| A2（SEIT） | 5.0090 | 11.0994 | 0.451 | 0.6686 | 3.3273 | 0.201 |
+| A3（联合，KILL） | 3.9536 | 7.8180 | ≈0.506 | 0.9430 | 3.6530 | ≈0.258 |
+| EvStereo3D public checkpoint | 8.0215 | 未测 | 未测 | 3.6448 | 未测 | 未测 |
+
+这张表直接给出 SOTA 缺口的算术：**Vehicle** 侧 R1 = 11.3907 × 0.549，守住天花板时只需把效率抬到 0.705（+28%）就越过 8.0215，且该预算已由 C77 的 oracle 重排证明存在，是纯排序/打分问题。**Pedestrian** 侧 R1 = 1.8659 × 0.102，历史最好效率 0.282（A1）乘历史最好天花板 3.653（A3）≈ 0.94，正好等于 A3 实测值——**配方级组合的数学上限就在 1 附近，永远够不到 3.6448**；按效率 0.5 计需要天花板 ≈7.3，只能来自新的深度精度机制。
 
 三项 SOTA 门 `G-public`、`G-paper`、`G-SOTA` 全部 FAIL。项目没有任何三 seed 结果，因此不存在可用于 SOTA 声明的置信区间。
 
@@ -161,7 +196,179 @@ D2 的三个数字之所以可信，正是因为这条链完整：合成正对�
 `bracketing` 这个结果，把"0.3590 只是假设采样偏心"这个辩解提前关掉了，否则它会在下一次
 复活申请里出现。
 
-## 4. C01–C75 踩坑索引
+### 3.6 R0 仓库合同与 R1' 零训练审计（2026-08-24/25）
+
+D2 之后先做的不是新机制，而是回答一个更基础的问题：**到底是哪一份代码产生了本文里的
+R1/D1/D2 数字，那些产物今天还在不在。** 收据是 `reports/repo_contract.md`，全部条目给
+实际路径与 SHA256 或写 `MISSING`，没有一条按文档猜路径。
+
+| # | R0 判据 | 结果 | 判定 |
+|---|---|---|---|
+| 1 | 找到产生事件实验的真实源码与配置 | 事件代码全在 detached commit `9446413`（93 个提交，84 个不在 `main`）；103 个 `lib` 模块全部可导入；16 个 yaml 在拒绝重复键的严格 loader 下全部解析 | PASS |
+| 2 | 找到或明确恢复 checkpoint | R1 的 epoch 001–011 逐 hash 与归档清单一致、strict 加载 674/674 键、参数 18,405,547；**`epoch_012.pth`（`9e21d6c8…`，208,212,110 字节）确认丢失** | PARTIAL，已裁决接受 |
+| 3 | evaluator 与历史身份一致 | 5/5 fingerprint 覆盖文件 hash 精确一致，另 4 个评测路径文件一并登记；官方 val infos hash 一致 | PASS |
+| 4 | 能复现 R1 关键数字 | 用固定评测器重评已验身份的预测 pickle：`fields_compared: 84`、`field_differences: []`，六个门字段最大 \|Δ\| 4.62e-05 | PASS |
+| 5 | 文档/源码/配置/checkpoint 四方 hash 锁定 | §2 全表登记，含两棵树 HEAD、两份文档、manifest、四份归档清单、bundle | PASS |
+
+三条由此产生的硬约束，后续阶段必须遵守：**不得声称任何权重与 R1 的原 artifact 同一**
+（需要"从 R1 权重出发"时改用 `epoch_011.pth` 并显式标注是第 11 而非第 12 个 epoch）；
+**R1 只能作为数字基线引用**，引用时指向复现表而不是指向一个 checkpoint 文件；
+`tests/episet4d/test_p0_receipt_contract.py` 的 13 项 error 在缺口补上前是**已知且已归因**
+的状态，不得被读作新的回归。被放弃的路线是 12 epoch 重训——它代价高且产物不会
+bit-identical，换不来 identity。远端恢复路线也已逐条关闭：`epoch_012.pth` 从未进入 git
+（全历史 `--diff-filter=A -- '*.pth'` 输出为空），远端只有一条 `refs/heads/main`、无 tag
+因而无 Release 附件，而恢复已删除分支只能恢复源码。
+
+同期还发现 D2 的全部装置（`tools/epst4d/*`、`tests/epst4d/`、`reports/episet4d/d2_audit/`）
+**在整个 git 历史里提交数为 0**，且已不在磁盘上。D2 的数字因此永久失去可复核性，只能作为
+文字记录引用；它留下的真正资产是 C71–C74 四条装置纪律，新探针必须逐条继承。
+
+R1' 审计（session `b2baf3`，收据 `reports/r1_audit/R1_AUDIT_RECEIPT.md`，装置
+`tools/r1_audit/audit_stereo_geometry.py` 与 `audit_fix_targets.py` 已登记 SHA256）
+用四轮只读运行回答"底座有没有罪"：
+
+| run | split | 内容 | 关键读数 |
+|---|---|---|---|
+| run1 | train | 中心视差判据 + H-A~H-G 排除清单 | 带命中 0.414；标定 ty/tz≈1e-15、cx/cy 差=0；方向正确率 96.8%；左右窗口时间一致 |
+| run2 | train | 同样本换 8 角点表面带判据 | 带命中 **0.631**，0–10 m 桶 `0.000→0.778`；车隐含表面偏移中值 2.18 m |
+| run3-val | val | 表面带判据泛化检查 | 0.649；行人 train 0.667 / val 0.778 |
+| run4-fix | train | SEIT 移植原型 + 跨窗运动先验 | 移植命中 T0 4/4、T1 10/10、T2 远 12/12、T2 近 9/12；50 ms 窗间运动中值车 2.95 px / 行人 3.42 px，P90 ≈10 px |
+
+结论就是第 1 节的第 6–7 条：**判据缺陷（C76）而非机制失败**，加上三个修复靶点的零训练
+确认（C77）。这一步同时把"标定/数据修复"从路由里合法划掉——底座无罪，剩下的缺口在打分、
+框质量与实例多样性上。
+
+### 3.7 A 系列训练臂：A1 / A2 / A3（2026-08-25/26）
+
+三个臂都在未提交的工作树 `/data1/lyq/code/.epst4d_v3`（branch `epst4d/v3`）上跑，基线是
+R1 冻结配方，单变量纪律：除目标机制外其余配方与 R1 逐字节一致。预注册在
+`docs/proposals/P2B_HYBRID_MATCHING_PREREG_DRAFT.md`（A1）与 `SEIT_PREREG_DRAFT.md`（A2），
+都在看到任何数字前写定。
+
+| 臂 | 唯一变量 | 门 | 结果 |
+|---|---|---|---|
+| A1 | 训练期一对多混合匹配（1 主组 + K=5 辅助组、行人定位代价 ×0.5）+ IoU-aware 软分类目标；不加新头、不改推理路径 | Veh ≥8.02 或（Ped ≥1.0 且 Veh ≥6.0） | FAIL：Veh 6.2552→4.2104，Ped 0.1896→0.7218 |
+| A2 | SEIT 立体一致事件实例移植（供体池离线索引、视差/尺寸重缩放、跨场景粘贴），default-off | Ped >1.0 且 Veh ≥5.95 | FAIL：Veh →5.0090，Ped →0.6686 |
+| A3 | A1+A2 联合，但 IoU-aware 只对行人开、不粘车、加 `max_coverage_of_existing: 0.15` 覆盖守卫、行人剂量 ≤6/样本 | 双类同过竞品线，Veh 跌幅 ≤20% | **KILL**：Veh →3.9536（−36.8%），Ped →0.9430 |
+
+**A1 与 A2 掉的是不同的东西，这是本轮最重要的一条。** A1 把 Vehicle oracle 从 11.3907
+砍到 7.6704（−32.7%）而排序效率 0.549 分毫未动——全局 IoU-aware 分类拿 2D IoU 当目标，
+奖励"大致对"的框，而 strict 3D AP 只认深度上钉死的框，对占绝对多数的车是净损失。
+A2 守住天花板（−2.6%）而效率从 0.549 掉到 0.451，主导解释（推断，非直接测量）是当时的
+放置规则只查中心距离，允许移植物完全压住宿主场景已标注的目标、擦掉标注框下的真实事件，
+从而制造标签噪声。行人两侧都赢且赢法正交：A1 把行人效率 0.102→0.282（C77 预测的"打分
+修复"），A2 把行人天花板 1.8659→3.3273（+78%，C77 里"必须来自框质量/泛化"的那部分）。
+A3 的全部依据就是这个正交性。
+
+**一个必须记住的反直觉事实：A1 的框质量三臂最好，AP 三臂最差。** `mean_matched_iou_3d`
+0.04388 与 recall@2D 0.70 = 0.3415 都是最高，strict 3D AP 却最低。"框做准了 AP 自然会涨"
+在这个数据集上不成立，判断机制有害与否必须用 oracle 分解，不能用框质量指标。
+
+五条假设被运行时数字否决，列在此处防止重复排查：
+
+| 假设 | 测量 | 结果 | 裁决 |
+|---|---|---|---|
+| H1 分数被 0.1 解码阈值截断 | A1 阈值降到 0.0 重跑 | Veh 4.2104→4.2402（噪声级），Ped 0.7218→0.6254 **下降** | 否决：被丢的框排在假正例后面 |
+| H3 3D 几何质量退化 | 比 `mean_matched_iou_3d` | 0.03443→0.04388，反升 27% | 否决 |
+| H5 缺 3D NMS 导致重复框计假正例 | 对 A2 预测施加竞品同款 3D NMS（IoU 0.25）后重跑冻结评测器 | Veh +0.029、Ped +0.007 | 否决：一对一匹配让抑制多余 |
+| H7 行人挤占车辆输出预算 | 按类统计检出数与分数分布 | 两类 `min_score` 都精确停在 0.1 | 否决：限制来自分数阈值不是 top-k |
+| H8 分数分布变尖锐把正确检出切掉 | A2 阈值降到 0.0 | Veh 5.0090→4.7199、Ped 0.6686→0.5993，两类**更差** | 否决 |
+
+H1 与 H8 从两个方向撞上同一堵墙，合并成一条规则：**本流水线的 AP 缺口不在解码阈值上，
+不要再动它。** 仍然未决的是 H4（"均值 3D IoU 上升掩盖尾部变薄，而 strict AP 完全活在
+尾部"）：只有 A2 落了 `recall_by_iou_3d_threshold`（Veh ≥0.70 = 11.1%（2607/23412）、
+Ped ≥0.70 = 0.26%（15/5701）），R1 与 A1 的补测在叫停时只跑到 2000 query，**没有可比基线，
+H4 不能裁决**。行人在 0.70 档只有 15 个真值被覆盖这一点本身已经说明：行人 strict 的上限
+几乎完全由深度精度决定。
+
+排查中修掉六个实现缺陷，其中第一个值得单独记账：
+
+| # | 缺陷 | 影响面 |
+|---|---|---|
+| 1 | `_tiny_overfit` 读 `config["experiment"]["output_dir"]`，而所有 config 把它定义在 `training` 下 | **所有臂（含 R1）** 的 tiny-overfit 预检一律抛 `KeyError`，C40 的修复因此从未生效 |
+| 2 | SEIT 移植未重新锚定时间戳 | `CausalEventVoxelizer` 报 "future event"，破坏因果性 |
+| 3 | SEIT 在 GPU 张量上直接调 `numpy()` | 训练期崩溃 |
+| 4 | SEIT 假定 target 一定有 `supervision_contract`，实际下发 `official_unfiltered` | 字段集不同，崩溃 |
+| 5 | SEIT 放置只查中心距离 | 移植物可完全压住已标注目标；改为 `max_coverage_of_existing` 覆盖率守卫 |
+| 6 | 供体池顺序扫 manifest（manifest 按序列排序） | v1 池 400 个行人供体只来自 12 个 `sequence_id`；改为按序列分层采样后 v2 为 841 个供体 / 43 个 `sequence_id` |
+
+缺陷 1 是一个**测量装置缺陷**：它让四个臂的冒烟预检静默失效，不体现在任何 AP 上，只在
+需要它拦住问题的那天暴露。移植这个修复是 EpiTube4D Phase 0.5 的第一步。
+
+A3 的正式判定（session `522f14`，诊断收据 `reports/epst4d_v3/a3_joint/diagnostic/`）：
+训练 12/12 epoch 机械完整（loss 11.09→3.04 单调、0 次 5× 中位数 spike），
+checkpoint `epoch_012.pth`（`570012434b30…`），诊断 ~2h37m。门判定 **KILL** 双条同触：
+pass 未达（3.9536 < 8.0215 且 0.9430 < 3.6448）、kill 触发（Veh −36.8% > 20% 限额）。
+机制归因分五条：行人轴真实移动（strict 5×、框质量 0.234→0.364、0–10 m 证据覆盖
+0.715→0.927，与 C79 一致）；车辆 strict 崩塌是**打分崩塌**（2D/loose 不掉反升，紧覆盖
+中位分 0.547→0.129 即 −76%，Spearman 反升 0.332→0.452）；oracle 把行人瓶颈也钉在打分
+（行人 oracle 3.653 ≈ 竞品 3.6448）；行人证据边界被剂量挤向近距（0–10 m +0.21，但
+10–20 m −0.05、20–30 m −0.08、30 m+ −0.05）；远距行人可证伪线仍未过（val/train 远行人比
+0.0052→0.0280 < 0.05 门）。对下一臂的约束：A3 不得作为联合胜出配方复投；下一刀打**车辆
+strict 的分数校准/深度精度**，不是加行人剂量（C78：竞品每样本粘 8 行人，A3 的 6 不激进，
+且剂量不解释车辆掉点）；>20–25 m 行人不设主张（C79 的物理边界）。
+
+### 3.8 EpiTube4D 路线与 Phase 0（2026-08-26）
+
+当前活跃路线。主控文档是 `docs/proposals/EPITUBE4D_EXECUTION_PLAN_V2_DRAFT.md`（逐阶段
+提示词在同目录 `EPITUBE4D_CODEX_PROMPTS_V2_DRAFT.md`，逐阶段结果落开发树的
+`EPITUBE4D_EXECUTION_LOG.md`），它们是活文档，不并入本文。路线选择的依据就是 §2 的
+oracle×效率算术：物理预算仍然存在的杠杆只剩三个，全部在主链上——**预训练匹配描述子**
+（P2，D2 路由授权的方向，C76 修正装置后零训练带命中已 0.63–0.78）、**对象级深度后验**
+（P5，C79 证明 10–20 m 行人亚像素物理可达，是行人天花板翻倍的唯一已知机制）、
+**posterior 原生 strict-risk 分数**（P7，攻效率缺口 0.549→0.705，替代被 C41 杀死的自由
+quality head 并带同款自动删除条款）。
+
+| 阶段 | 内容 | 状态 |
+|---|---|---|
+| P0 | 核验并继承仓库合同（不重做审计） | **DONE / PASS**（2026-08-26） |
+| P0.5 | 零训练证据补全：H4 尾部裁决 + oracle×效率基线总表 + 装置修复移植 | READY |
+| P1 | 标定复核（非重做）+ intensity 正控制 | READY，可与 P0.5 并行 |
+| P2 | event-only descriptor 预训练，**授权门 = 聚合 AUC ≥0.95** | 待 P1 |
+| P3–P5 | Causal Event State Pyramid → 解耦对象 tokenizer → EpiTube posterior oracle（A→D 不许跳级） | 待 P2 |
+| P6–P7 | 静态 3D Set Detector 首门 → strict-risk 三臂打分 | 待 P5 |
+| P8–P9 | Anonymous Posterior Transport → 三 seed / SOTA / 消融 / 清理 | 最后 |
+
+Phase 0 的实跑内容与唯一 git 写操作：`git worktree add -b epitube4d-dev
+/data1/lyq/code/.epitube4d 9446413`，从只读归档恢复 R1 预测 pickle（工具用前自验
+SHA256），补上 manifest symlink（首跑 3 failed / 16 skipped 的唯一根因），冻结重评
+**PASS，84/84 字段 0 差异、六门字段最大 \|Δ\| 4.62e-05**，合同测试 `tests/dsec3dod`
+84 passed（38.81 s）。评测器/config/manifest/infos/预测共 9 项 hash 全部 OK，R1
+6.255211 / 0.189565、D1 5.498630 / 0.778744、EvStereo3D 8.021549 / 3.644764 全部可追溯。
+
+耗时锚点（实测，供后续估 ETA）：R1 冻结重评 CPU 27.9 s；`tests/dsec3dod` 84 项 38.8 s；
+12 epoch 四卡 L20 训练约 10 h（51 min/epoch）；完整诊断（val 11400 query + train 2000
+query）约 2 h 37 m，其中 train-split 2000 query @ ~0.31 q/s ≈1.8 h 是大头。
+
+诚实声明照抄计划 §15：第一 kill 点是 P2 的 0.95，现有最好证据是修正装置后的零训练带命中
+0.63–0.78，**距 0.95 仍有大缺口**，预训练+运动补偿+tube 聚合能否补上没有先例担保；不过门
+即停主线、删除未授权 detector 文件，descriptor 与负结果走组件科学出口
+（`COMPONENT_SCIENCE_VALID_BUT_NOT_SOTA`）。行人需要天花板（P5）与效率（P7）两个杠杆
+同时起效，是主风险。P6 的三 seed 静态目标（8.2 / 3.8）高于 `G-public`（8.0215 / 3.6448）
+是刻意留的余量；若落在两者之间，按 `G-public` 原文裁决，不得移门。
+
+### 3.9 A 系列与审计阶段撞到的坑（C76–C82 概览）
+
+这一轮的坑分三类，其中两类会**伪造结论**而不是让运行失败，逐条全文在附录 B：
+
+| 坑 | 类型 | 为什么它危险 |
+|---|---|---|
+| C76 探针真值用 box 中心视差而非表面带 | 判据缺陷 | 直接产出一个"below chance"的负结果并关闭了一整条路线；正控制对它不可见 |
+| C78 竞品配方差分漏掉 DB-sampler 阶段 | 审计缺陷 | 让"竞品唯一增广就是我们的 R1 镜像"成为独立支持句，而竞品每样本粘 8 行人 + 4 车 |
+| C80 单卡工具传非 0 `cuda:N`；本机 CUDA 枚举序 ≠ nvidia-smi 序 | 环境陷阱 | 崩在自定义算子后的第一个 cublas 调用，长得像模型 bug；挑卡还会挑错物理卡 |
+| C81.1 宿主机级 GPU 驱动退化 | 外因 | 无 traceback 的跨用户团灭，极易误判为自己代码 |
+| C81.2 代理沙箱强制 cwd 到工作区根并禁写区外 | 环境陷阱 | watcher 相对路径永不触发、mkdir 越界被拒，全部表现为"静默失效" |
+| C81.3 同一 arm 重复排队 launcher 共享 `train.log` | 运维陷阱 | 完成的 12 epoch 训练看起来"失败"，差点白重训 12 小时 |
+
+C76 与 C72 是同一族但更深一层：C72 是负对照太强（记住噪声）造成假通过，C76 是**真值定义
+错位**造成假失败，而且它躲过了正负控制。可复用的对策只有一条：正负控制之外还要有一条与
+判据无关的**机制指纹**（C76 的指纹是"车的隐含表面偏移 ≈ 车半长"）。
+
+C81.3 给出的判据值得升级为通用规则：**训练成败判据 = `training_log.jsonl` 的
+`epoch_summary`（epoch == max_epochs）且对应 checkpoint 落盘**；`train.log` 尾部只是
+"最后一个写入者的遗言"，退出码同理。
+
+## 4. C01–C82 踩坑索引
 
 本节确保每个合并后编号都有入口。完整根因、证据数字、修复与复活条件在本文附录 B（第 9 节，原 `FAILURE_LEDGER.md`）；源码/receipt 中的历史 `F##` 必须先查附录 B §0 的 F→C 交叉表，不能按本文编号猜测。
 
@@ -255,6 +462,18 @@ D2 的三个数字之所以可信，正是因为这条链完整：合成正对�
 | C74 | 合成 fixture 只对齐 shape/dtype 而非合同语义（极性、query rate、device） | 写 fixture 前先把被测合同的取值域与语义抄进注释；设备取自 config 声明而非自选 |
 | C75 | 被哈希锁定的 config 连注释都不可改：修一处死链即让 P0 冻结收据失配 | 编辑任何 config 前先查它是否出现在某份 `source_sha256` 里；锁定文件里的死链只记录不修改，绝不为过测试重生成冻结收据 |
 
+### 4.4 探针判据、竞品配方、A 系列与运行环境（C76–C82）
+
+| ID | 坑 | 永久规则/处置 |
+|---|---|---|
+| C76 | 立体对应探针拿 box 几何中心视差当真值，制造出"近处更差、大 patch 更差"的假负结果 | 真值一律取 8 角点投影视差区间 `[fB/z_far, fB/z_near]`±容差；必须附合成正控制并报控制通过率；必须分深度桶报告；控制失败的 patch 子集不计入结论 |
+| C77 | 三个修复靶点的零训练确认（打分塌缩可修且预算明确、SEIT 物理有效、跨窗传播先验强） | oracle 重排把 Veh 抬到 11.39 是"车的缺口全在打分内"的锚点；行人打分修复上限 ~1.87，其余必须来自框质量/泛化 |
+| C78 | 对竞品做配方差分时漏掉 DB-sampler 阶段：竞品每样本粘 ≤8 行人 + ≤4 车 | 数据管线的每个 stage 列表（augmentor chain、sampler、resample）必须逐项列举后才能下"没有 X"的结论，且该结论必须附 stage 清单证据 |
+| C79 | 物体级事件视差的亚像素精度有物理边界：10–20 m 行人可达（0.203 px vs 容差 0.489 px），20–30 m 不可达（需 0.13 px、实测 0.55 px） | 行人主张与剂量集中在 ≲20–25 m；>25 m 行人不设主张。本条只证明精度可行域，**不替代** C52/C69 的 ~0.95 判别性复活线 |
+| C80 | 单进程 GPU 工具传非 0 `cuda:N` 会在自定义算子后的第一个 cublas 调用崩；本机 CUDA 默认枚举序 ≠ nvidia-smi 序 | 一律 `CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=<smi编号> … --device cuda:0`；按 nvidia-smi 挑卡必须带 `PCI_BUS_ID`，否则挑错物理卡 |
+| C81 | 三个环境/运维坑连环：宿主机驱动退化团灭、代理沙箱强制 cwd 并禁写区外、同一 arm 重复排队 launcher 共享日志 | 长任务按"可被随机杀"设计（receipt 幂等 + 流式进度）；工作区外的树一律非沙箱启动 + 命令内嵌 `cd`，watcher 只用绝对路径；训练成败只认 `epoch_summary` + checkpoint 落盘，且重投前 `pgrep -f wait_and_train` 查存量队列 |
+| C82 | A3 联合臂：行人 strict 5× 但车辆 strict −36.8% 触发 KILL；oracle 证明两类瓶颈都在打分不在框 | A3 不得作为联合胜出配方复投；下一刀打车辆分数校准/深度精度，不是加行人剂量；行人 oracle 已达竞品量级，score head/质量估计/排序校准是第一优先级 |
+
 ## 5. 反复出现的共性教训
 
 1. **先证明仪器，再解释模型。** 协议、adapter、输出分数、IoU、空样本和 query 计数任一不对，AP 都不能承载科学结论。仪器的"功效"要双向证明：null 太弱会让破坏臂假通过（F16/F18），null 太强会让负对照假通过（C72），两者都要给留出集数字。判据的计数单位也算仪器的一部分（C71）。
@@ -267,6 +486,11 @@ D2 的三个数字之所以可信，正是因为这条链完整：合成正对�
 8. **默认关闭和单变量。** 研究模块保持 default-off；只有目标 arm 开启；配置扁平 diff 和 inference parity 共同证明变量唯一。
 9. **运行环境也是实验协议。** GPU 用 UUID 而非序号，真实分配显存验活；四卡训练固定 `torchrun --nproc_per_node=4`、每卡 16、全局 batch 64、AMP off；长任务用 `setsid` 并验活。
 10. **负结果要可恢复。** 代码、预注册、机器收据和 SHA256 清单保留；大 checkpoint/pickle/log 归档而非留在 Git，也不删除到无法复核。
+11. **AP 是两个量的乘积，必须分开报。** strict AP = oracle 天花板 × 排序效率。A1 与 A2 掉了同一量级的 AP，病因却相反（一个砍天花板、一个砍效率），修法也因此相反；A1 更是三臂里框质量最好、AP 最差的那个。任何臂的读数不给这两列，等于没给诊断。
+12. **审计必须核到调用点，"没有 X"是最贵的结论。** C78 的漏检来自只读了竞品 `stereo_data_augmentor.py` 的 crop/flip 段就断言"没有 copy-paste"，而真正的重剂量粘贴在 DB-sampler 阶段。同一个病在自家仓库的形态是 C30（合规适配器存在但生产路径从未调用）。凡是"没有 X"类结论，必须附被逐项枚举过的 stage/调用点清单。
+13. **正控制之外还需要机制指纹。** 判据错位时正控制会跟着一起错（C76）：它只能证明装置能检出它自己定义的信号。可信诊断的第三条腿是一个与判据无关的物理量落在它该落的位置——C76 靠的是"车的隐含表面偏移中值 ≈ 车半长"。
+14. **先证明运行环境没在骗你，再怀疑代码。** C80/C81 一个上午吃掉两次诊断 GPU 时：设备索引、CUDA 枚举顺序、沙箱 cwd、宿主机驱动复位、日志归属，五件事没有一件属于模型代码，但每一件都能伪装成模型 bug。排查顺序是先看跨用户症状与 `nvidia-smi` 的 `ERR!` 卡，再看调用约定，最后才读自己的栈。
+15. **产物不进 git 就等于随时可能消失。** R1 的最终门 checkpoint 从未被跟踪，丢失后不存在任何远端恢复路线；D2 的整套装置同样从未提交，它的数字永久失去可复核性。门产物要么进归档并登记 SHA256，要么提前接受"只能作为文字记录引用"。
 
 ## 6. 当前代码、产物与复现状态
 
@@ -306,19 +530,46 @@ GPU-d68247d7-80ed-9904-fa62-8f6dea8862b5
 
 2026-08-24 的 R0' tracked 清理删除了 17 个已关闭阶段的一次性诊断/清理脚本和 4 个只服务于它们的测试（`tools/g3_depth_diagnostic/` 与 `tests/g3_depth_diagnostic/` 整目录、C2/P1/P2/DDP 诊断探针、REP4D 代清理三件套、`d1_calibrate_loss_weight.py`、`p0_reeval_r1.py` 等）。删除前逐一记录 SHA256，收据在 `reports/epst4d/r0_cleanup/TRACKED_CLEANUP_20260824.tsv`，恢复途径是 Git 历史。判定标准：被 gate CLI、测试合同、byte-pinned 配置注释或负结果复现需求引用的工具一律保留（如 `p1_gradient_audit.py`、`p4a_depth_error_decomposition.py`、`p1b_class_mean_size.py`、`p0_cyclist_slot_census.py`）；只在冻结收据里被历史性提及的一次性脚本删除。两份决策 TSV（`tools/rep4d_cleanup_decisions.tsv`、`tools/episet4d/p0_cleanup_decisions.tsv`）作为审计痕迹保留，其中对已删脚本的旧 KEEP 决策被本次清理有记录地推翻。
 
+### 6.1 2026-08-27 的树、分支与产物分布
+
+R0 之后的一个关键事实：**`main` 上没有任何事件实验代码。** 交接时必须先看清四棵树的分工，
+否则会在 `main` 上找一个从来不在那里的文件。
+
+| 位置 | 身份 | 内容与注意事项 |
+|---|---|---|
+| `/data1/lyq/code/StereoDETR`@`main` | 主树 | 本档、`docs/proposals/` 会话文档、`reports/repo_contract.md`、`reports/r1_audit/`、`tools/r1_audit/` 三个审计探针、`tests/test_strict_yaml_loader.py`，加 RGB/KITTI 版 StereoDETR 主干 |
+| `9446413`，分支 `epst4d-archive` 保护，工作树 `/data1/lyq/code/.epst4d_r1a_frozen` | 93 个提交，其中 84 个不在 `main` | **全部事件实验代码**：`lib/datasets/dsec3dod/`、`lib/models/{event4d,rep4d,episet4d,monodetr}/`、16 个 yaml、四套合同测试、31 个 `reports/` 子目录。该 commit 原先只由 detached HEAD 保活，R0 建保护分支是当时唯一的 git 写操作 |
+| `/data1/lyq/code/.epst4d_v3`，branch `epst4d/v3`，**未提交** | A 系列工作树 | A1/A2/A3 的配置、SEIT 与 hybrid matching 实现、三份诊断收据。**清理该树前必须先归档 A 系列收据**，否则 H4 的证据不可复核 |
+| `/data1/lyq/code/.epitube4d`，branch `epitube4d-dev`（从 `9446413` 建） | EpiTube4D 开发树 | 当前活跃路线的落点，Phase 0 已在此 PASS |
+
+两个易踩的产物事实：`lib/datasets/dsec3dod/manifest/records.jsonl`（`b2afa842…`，
+135,886,083 字节，53,578 query）是唯一数据入口，事件树与开发树都按 symlink 指向主树这一份，
+但它 **135 MB、不进 git**（`.gitignore` 已登记），换机器或清理主树前必须先从
+`/data1/lyq/stereodetr_docs_backup_20260824/` 恢复，否则所有 dataset 测试会以"链接失效"
+形态失败；`reports/r/r1_stereo_flip/epoch_012.pth`（`9e21d6c8…`）**已丢失且远端恢复路线
+已关闭**，R1 只能作为数字基线引用（§3.6）。
+
+`tools/r1_audit/` 的三个探针（`audit_stereo_geometry.py`、`audit_fix_targets.py`、
+`probe_subpixel_disparity.py`）按惯例留档并已登记 SHA256，它们是 C76/C77/C79 的复核入口，
+可直接复跑；一次性审计脚本按约定留在 `mktemp -d` 中不提交，身份登记在
+`reports/repo_contract.md` §9。
+
 ## 7. 阅读顺序与事实优先级
 
 建议按以下顺序复核：
 
-1. 本文第 1–7 节：快速掌握所有实验、终态和坑索引。
-2. 本文附录 A（第 8 节）：REP4D 阶段的逐实验因果链和决定性数字。
-3. 本文附录 B（第 9 节）：C01–C75 的完整证据、修复和复活条件。
-4. 本文附录 F（第 13 节）：protocol fingerprint、seed/CI/bootstrap 和 claim 纪律。
-5. 本文附录 E（第 12 节）：数据、时间、几何与 split 合同。
-6. 本文附录 C（第 10 节）：与竞品 EvStereo3D 实现的逐行差分。
-7. 本文附录 G–N：P0/P1/T1/D1/D2/R1 的预注册、修订披露和阶段路由（原为不可变文档，并入后同样只读）。
+1. 本文第 1–7 节：快速掌握所有实验、终态和坑索引。若只有十分钟，读第 1 节与第 2 节的两张记分板——SOTA 缺口的算术全在那里。
+2. 本文第 3.6–3.9 节：2026-08-24 之后的四件事（仓库合同、判据更正、A 系列三臂、当前路线），也是理解"为什么现在打的是打分而不是框"的入口。
+3. 本文附录 A（第 8 节）：REP4D 阶段的逐实验因果链和决定性数字。
+4. 本文附录 B（第 9 节）：C01–C82 的完整证据、修复和复活条件。
+5. 本文附录 F（第 13 节）：protocol fingerprint、seed/CI/bootstrap 和 claim 纪律。
+6. 本文附录 E（第 12 节）：数据、时间、几何与 split 合同。
+7. 本文附录 C（第 10 节）：与竞品 EvStereo3D 实现的逐行差分（**读时先看 §2.1 的 C78 批注**）。
+8. 本文附录 G–N：P0/P1/T1/D1/D2/R1 的预注册、修订披露和阶段路由（原为不可变文档，并入后同样只读）。
+9. `reports/repo_contract.md` 与 `reports/r1_audit/R1_AUDIT_RECEIPT.md`：交接与复现的实际路径、SHA256 与缺口清单。要动代码或换机器，从这两份开始。
+10. `docs/proposals/`：A 系列的两份预注册、三份结果文档、C76–C82 条目草稿（逐字原件），以及当前活跃路线的 runbook 与提示词（活文档）。
 
-事实优先级从高到低为：机器 receipt/JSON → 在数字出现前提交的预注册 → 专项结果文档 → 本汇总。历史论断被后续测量更正时，以更晚且更直接的测量为准，但原论断和更正都保留在时间线中。
+事实优先级从高到低为：机器 receipt/JSON → 在数字出现前提交的预注册 → 专项结果文档（含 `docs/proposals/` 会话文档与 `reports/` 收据）→ 本汇总。历史论断被后续测量更正时，以更晚且更直接的测量为准，但原论断和更正都保留在时间线中——附录 C §2.1 与附录 A 的 C78 批注、第 1 节第 5–6 条的 D2 更正都是这个规则的实例。
 
 ## 8. 附录 A：REP4D 逐实验因果链
 
@@ -790,6 +1041,14 @@ detail in Appendix C of this document (§10, formerly the standalone
    before this differential ran, on our own generalization evidence; that it
    lands on the published baseline's only augmentation is independent support.
 
+> **2026-08-26 更正（C78）：第 3 条的"no copy-paste"是错的。** 当时只核到
+> `stereo_data_augmentor.py` 的 crop/flip 段，漏掉了 DB-sampler 阶段：竞品训练配置的
+> `stereo_event_gt_sampling` 每个训练样本粘贴至多 8 个行人 + 4 辆车（行人最低点数门槛
+> 仅 1），实现在 `liga/datasets/augmentor/stereo_event_database_sampler.py`。镜像仍是
+> 竞品唯一的**几何变换**增广，但不是唯一增广，因此"R1 恰好落在竞品唯一增广上"这句
+> 独立支持必须按此收窄。竞品的行人 3.6448 是在稠密分配 + 放宽判据 + 8 行人/样本
+> copy-paste + 60 epoch 的**联合**配方下取得的。
+
 Finding 2 supplies a **second sufficient explanation** for the C59 evidence that
 requires no memorisation at all, and it is the one that fits the R1 separation
 exactly. Vehicles get roughly 10 ground truths per image times 11 groups, so
@@ -858,7 +1117,7 @@ whose magnitude matches the gap.
 
 ---
 
-## 9. 附录 B:REP4D 失败台账(C01–C75 全量条目)
+## 9. 附录 B:REP4D 失败台账(C01–C82 全量条目)
 
 本附录原为独立的 `docs/FAILURE_LEDGER.md`,2026-08-24 应"实验、坑与根因单文件化"要求
 合并进本文,原文自此删除(Git 历史保留)。内容逐字保留,仅做三处机械调整:标题各降一级、
@@ -1724,6 +1983,8 @@ whose magnitude matches the gap.
      配 `calib.fliplr()`（336 行）与 `boxes3d_fliplr()`（452 行），p=0.5。
      `random_crop` 是空操作（裁剪边界等于整幅 480×640），世界旋转/缩放/平移全部注释掉。
      无光度增广、无事件 dropout、无 copy-paste。
+     （**2026-08-26 更正，C78：** "无 copy-paste"是漏检。竞品在 DB-sampler 阶段
+     每样本粘贴至多 8 行人 + 4 车；镜像只是它唯一的**几何变换**增广。）
 - **为什么这解释 C59 的症状：** 一对一匹配下，一个行人每张图只产生**一个**正梯度，
   对抗上千个负样本；稠密分配下同一个行人每张图产生数百个正梯度。
   在 12 epoch 侦察预算下，前者必然先学会定位、后学会自信——
@@ -2157,6 +2418,248 @@ whose magnitude matches the gap.
   注释里，写进文档并从 config 只引一个稳定锚点；(c) 死链不总是可修的，遇到
   锁定文件时正确动作是记录而不是修改。
 
+#### C76 — 立体对应探针的真值必须用角点视差带，不得用中心视差：一个判据缺陷关掉了整条路线
+
+- **类型：** `metric_defect`；踩坑于 D2（2026-08-24），由 R1' 审计 session
+  `b2baf3` 独立重写的装置捕获。收据 `reports/r1_audit/R1_AUDIT_RECEIPT.md`，
+  装置 `tools/r1_audit/audit_stereo_geometry.py`（`fbc23cac…`）
+- **发生了什么：** D2 记录 truth-beats-wrong `0.3590`（below chance），并伴随
+  三个反直觉相关：近处更差（0–10 m `0.229` 对 >30 m `0.421`）、大成像尺寸更差
+  （>50 px `0.252` 对 <25 px `0.481`）。D2 据此判 `MECHANISM_FALSIFIED`，
+  关闭了直连事件立体对应这条路线，并把项目路由改成
+  `FIX_DATA_CALIBRATION_PRETRAIN`
+- **根因：** 立体匹配发生在物体**可见表面**，而探针以 box **几何中心**的
+  `fB/Z` 作为真值视差。两者相差约 `fB·(l/2)/Z²`：569×0.599 的标定下，10 m 处
+  车差 8 px 以上、25 m 处差 1.4 px。这一个偏差恰好同时制造上面三个反直觉模式
+  （近处 `1/Z²` 最大、大 patch 即近处大目标）
+- **决定性证据：** 换 8 角点表面带判据后，同一批样本上 train 带命中
+  `0.414→0.631`、0–10 m 桶 `0.000→0.778`、val `0.649`；深度趋势反转为物理正常
+  的单调；行人 train `0.667` / val `0.778`；车的**隐含表面偏移中值 2.18 m ≈
+  真实车半长 2.2 m**，这是与判据无关的机制指纹。逐条排除清单同时留档：H-A 标定
+  `ty/tz≈1e-15` 且 `cx/cy` 差 = 0；H-B 方向正确率 96.8%；H-C 左右窗口时间范围
+  一致；H-D 无 `cx` 修正项可缺；H-E 事件密度在对错组无区分；H-F 10 ms 短窗更差
+  （`0.360 < 0.414`）；H-G 环带背景一致率仅 `0.123`
+- **处置：** D2 的 `MECHANISM_FALSIFIED(direct-event stereo correspondence)`
+  降级为 **`SUSPECT_RIG_ARTIFACT`** —— D2 装置从未提交且已丢失，无法重放，但它
+  全部反直觉模式都由本条机制复现并消除；`FIX_DATA_CALIBRATION_PRETRAIN` 的
+  "标定/数据修复"子项记 `CLOSED_CLEAN`（底座无罪）；直连事件特征路线解禁，
+  计数图 + 朴素 ZNCC 即达全局 `0.63` / 近处 `0.78` / 行人 `0.67–0.78` 的对应命中。
+  **C52/C69 冻结的聚合后 ~0.95 判别性复活线不变**，本条不是复活许可
+- **可复用规则：** 任何立体对应性探针 (1) 真值一律取 8 角点投影视差区间
+  `[fB/z_far_corner, fB/z_near_corner]` ± 容差；(2) 必须附合成正控制（自体平移，
+  C73）并报告控制通过率；(3) 必须分深度桶报告；(4) 控制失败的 patch 子集不得
+  计入结论（本次先例：val `zurich_city_08_a_02` 图像左缘截断 patch，其合成正控制
+  同步失败）。还有一条更贵的教训：**正控制无法发现真值定义错位**——合成位移是
+  相对同一个错的真值注入的，所以它照样打到 1.0000。判据类缺陷只能靠独立重写 +
+  机制指纹抓出来
+
+#### C77 — 三个修复靶点的零训练验证：车辆的全部缺口在打分内，行人打分修复上限只有 1.87
+
+- **类型：** `mechanism_confirmed`；session `b2baf3`（2026-08-24/25）
+- **L2 打分塌缩可修且预算明确**（引 R1 归档 `C2_BOTTLENECK.json`，全量 11,400
+  query）：行人查询覆盖不缺，2D IoU≥0.10 召回 94.3%、≥0.25 召回 71.0%；分数失灵，
+  score-IoU Spearman **0.098**（车 0.332）；被紧覆盖行人 GT 的最佳预测中位分
+  **0.0126 < 解码阈值 0.1**；15–20 m 行人分类概率 train `0.690` → val `0.0036`
+  （**192 倍崩塌**）；oracle 重打分 **Veh 6.26 → 11.39（高于 EvStereo3D 公开
+  checkpoint 的 8.02）**、Ped 0.19 → 1.87。行人框质量另有瓶颈：3D IoU≥0.5 召回
+  仅 0.234（车 0.572）
+- **L1 修复工具 SEIT 物理可行**（run4-fix，双次运行逐字节一致）：T0 恒等移植
+  控制 4/4；T1 换位置 ±120 px 跨场景 10/10；T2 变远 `z×1.5` 12/12；T2 变近
+  `z×0.75` 9/12（放大稀疏化所致，生产版需密度补偿）。均不低于真实行人基准
+  train 0.667 / val 0.778
+- **跨窗查询传播先验强**（3,359 相邻帧对，`obj_ids` 仅审计用）：50 ms 窗口间
+  运动中值车 2.95 px / 行人 3.42 px，P90 车 11.10 / 行人 9.26（最大 28 px）；
+  查询传播以 ~15 px 局部半径即可覆盖 P90
+- **遗留的已知小项（发现但不阻塞）：** 行人 30 m+ 召回 0.58、车 0–10 m 召回
+  0.41（近处大目标出画/截断，与 moderate 指标弱相关）、rectify 丢弃 8–13% 事件
+  （畸变边缘出界，正常行为，登记备查）
+- **可复用规则：** oracle 重排序给出的是"框存在性上界"，可以在训练前把一个臂的
+  收益预算算清楚（这是 A 系列三个臂全部按 oracle×效率两列诊断的起点）；但它**不是
+  可达值**，任何拿它当承诺的预注册必须写明这一点
+
+#### C78 — 配方差分漏掉 DB-sampler 阶段：竞品训练配方含重剂量事件 copy-paste
+
+- **类型：** `audit_defect`（`recipe_differential_correction`）；踩坑于附录 C
+  （2026-08-22），由 session `522f14` 直接读竞品源码核实（2026-08-26）
+- **发生了什么：** 附录 C §2.1 写 "Their sole geometric augmentation is exactly
+  our R1 arm … no copy-paste"，并把"R1 镜像恰是竞品唯一增广"当作对 R1 选择的
+  **独立支持**
+- **事实：** `configs/stereo/dataset_configs/dsec_dataset_fused_event_4_train_val200.yaml`
+  第 42–49 行有 `stereo_event_gt_sampling`，`SAMPLE_GROUPS:
+  ['Vehicle:4', 'Pedestrian:8']`、`filter_by_min_points: ['Vehicle:5',
+  'Pedestrian:1']`，实现在
+  `liga/datasets/augmentor/stereo_event_database_sampler.py`。即**竞品每个训练
+  样本粘贴至多 8 个行人 + 4 辆车的事件实例**，行人最低点数门槛仅 1。当时只检查了
+  `stereo_data_augmentor.py` 的 crop/flip 段，漏掉整个 DB-sampler 阶段
+- **影响：** (1) 配方差分表新增一行数据侧差异，与标签分配同级——竞品行人 3.6448
+  是在"稠密分配 + 放宽判据 + 8 行人/样本 copy-paste + 60 epoch"的联合配方下取得；
+  (2) SEIT 的定位从"我们独有的新增广"修正为"补齐配方缺口的更强形态"（立体一致、
+  深度重缩放、密度补偿、遮挡语义、覆盖率守卫是相对竞品 sampler 的增量）；
+  (3) A3 的 `max_pedestrians_per_sample: 6` 与竞品的 8 同量级，**剂量不属激进**，
+  因此不能用"剂量太大"解释 A3 的车辆掉点；(4) 附录 A 与附录 C 的对应段落已加批注
+- **可复用规则：** 对竞品做配方差分时，数据管线的每个 stage 列表（augmentor
+  chain、sampler、resample）都必须逐项列举后再下"没有 X"的结论，且该结论必须附
+  stage 清单证据。这是 F27/C30"审计必须核到调用点"在竞品代码上的复发
+
+#### C79 — 物体级事件视差的亚像素精度有物理边界：10–20 m 行人可达，20–30 m 不可达
+
+- **类型：** `mechanism_confirmed`（含**物理不可达边界**）；session `522f14`，
+  装置 `tools/r1_audit/probe_subpixel_disparity.py`（留档可复跑）
+- **方法：** 全窗（50 ms）计数图 ZNCC 峰 + 三点抛物线亚像素细化；以两个不相交
+  25 ms 半窗的独立估计之差 `|d_A − d_B|` 作为精度上界（含真实物体运动与半量事件
+  噪声，双重保守）；逐 box 容差 `tol_d = f·B·l·(1−t)/(1+t)/Z²`，`l` 用逐框实际
+  长度。继承 C76 的 8 角点表面带判据与 C71–C74 的装置纪律
+- **控制臂（全过）：** 合成分数位移正控制（0.30/0.70 px 线性插值注入）恢复中位
+  误差 train 0.129 px / val 0.141 px ≤ 0.25 px 门；错行负控制（`dy=+40`）带命中率
+  9.2% / 9.4%，对照主臂 57–80%，证明测的是极线对应；装置健康检查与 C76 收据同
+  量级（train 0.65–0.80 主桶）
+- **读数**（中位 `|d_A−d_B|` px / 中位 `tol_d` px / ≤tol 比例）：
+
+| 类 | 深度 | train | val |
+|---|---|---|---|
+| Pedestrian | 10–20 m | **0.203 / 0.489 / 70%**（n=10） | 0.076 / 0.610 / 100%（n=2） |
+| Pedestrian | 20–30 m | 0.549 / 0.130 / 14%（n=7） | 2.913 / 0.141 / 0%（n=2） |
+| Vehicle | 10–20 m | 0.312 / 1.487 / 81%（n=31） | 0.337 / 1.318 / 89%（n=28） |
+| Vehicle | 20–30 m | 0.267 / 0.408 / 64%（n=28） | 0.208 / 0.472 / 77%（n=30） |
+| Vehicle | 30–45 m | 0.238 / 0.219 / 53%（n=34） | 0.118 / 0.231 / 66%（n=29） |
+
+- **推论：** (1) 行人 strict 所需的亚 0.5 px 物体级视差在 10–20 m **物理可达**
+  （朴素 ZNCC 即达 0.2 px），车辆到 45 m 大体可达——P4A 判 `MAP_LIMITED` 的稠密图
+  确实把物理可达精度留在了桌上，"对象条件稀疏对应"方向有精度预算；(2) 行人
+  20–30 m 需 0.13 px、实测 0.55 px，**物理接近不可达**，主张与剂量应集中在
+  ≲20–25 m 行人与全距离车辆；(3) 本条只证明**精度可行域**，不是 C52/C69 冻结的
+  ~0.95 判别性复活线，不得替代那道门
+- **限制：** n 小（train 120 / val 106 box）；重复性含真实运动（保守上界）；
+  表面→中心偏移需学习头或多峰后验解决，本装置未测该项
+- **可复用规则：** 精度类主张必须与逐样本容差公式一起报（`tol_d` 随 `1/Z²` 变化，
+  一个"0.5 px 很准"的说法在 15 m 是通过、在 25 m 是失败）；发现不可达区间时，
+  正确动作是**在主张里写明边界**，而不是继续加剂量去攻它
+
+#### C80 — 单卡工具禁传非 0 设备索引；本机 CUDA 枚举顺序与 nvidia-smi 不一致
+
+- **类型：** `env_trap`；session `522f14` runB-smoke（A3 epoch-1 诊断冒烟）
+- **现象：** `diagnose_arm.py --device cuda:1` 在 c2 val 前向 161 秒处崩
+  `CUBLAS_STATUS_EXECUTION_FAILED`，栈顶是 `ms_deform_attn.py:164 output_proj`
+  ——自定义 MSDeformAttn kernel 之后的第一个 cublas 调用，也就是异步错误的冒泡点，
+  看起来像模型 bug
+- **裁决实验（单变量，同一块物理卡）：** 尝试 1，8 卡可见 + `--device cuda:1` →
+  崩（PID 1415644，物理总线 `56:00.0`）；尝试 2，`CUDA_VISIBLE_DEVICES=1` +
+  `--device cuda:0` → **同一物理总线、同一邻居负载**，干净跑过崩溃点（13.9 GB
+  已分配，>12 min 无错）。硬件与共卡争抢假设被排除，根因是自定义算子在**进程内
+  非 0 设备索引**上的当前设备上下文错配（工具未调 `torch.cuda.set_device`）
+- **同时暴露的第二个陷阱：** `/proc/<pid>/environ` 证实 `CUDA_VISIBLE_DEVICES=1`
+  生效，但落到的物理卡是总线 `56:00.0` = **nvidia-smi GPU 2**（当时与他人 7.2 GB
+  任务共卡），而不是预期的 nvidia-smi GPU 1（总线 `52:00.0`，空闲）。即本机
+  **CUDA 默认枚举顺序 ≠ PCI/nvidia-smi 顺序**（索引 1/2 互换）
+- **可复用规则：** (1) 本仓所有单进程 GPU 工具（`diagnose_arm`、c2 诊断、eval、
+  探针）一律以 `CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=<smi编号> …
+  --device cuda:0` 调起，**禁止把非 0 的 `cuda:N` 传进冻结工具**（工具 hash 被
+  仓库合同 pin，不改代码，靠调用约定守住）；(2) 按 nvidia-smi 挑空闲卡时必须带
+  `CUDA_DEVICE_ORDER=PCI_BUS_ID`，否则挑错卡；(3) 与 C39 同族——那条是"`--device
+  cuda:N` 避不开坏卡"，这条是"传了非 0 索引会直接崩"，两条合起来意味着**卡的选择
+  只能靠环境变量，不能靠命令行参数**
+- **后续确认：** A3 正式诊断以该约定在 nvidia-smi GPU 7 上端到端跑完 ~2h37m
+  无错，约定在生产路径上成立
+
+#### C81 — 一个上午连环三个环境/运维坑：宿主机复位链、代理沙箱 cwd、重复排队 launcher 的"假失败"
+
+- **类型：** `env_trap` ×2 + `ops_trap` ×1；session `522f14`，2026-08-26 上午。
+  代价约 2 次 × ~20 min 诊断 GPU 时，以及一次差点白重训 12 小时的误判
+
+**坑 1：宿主机级 GPU 驱动退化 → 全机 CUDA 进程团灭（外因，非本仓代码）**
+
+- 时间链：07:29:46 一个新起的 torchrun 在 CUDA lazy init 即崩
+  （`device >= 0 && device < num_gpus INTERNAL ASSERT FAILED … device=3`，
+  `CVD=4,5,6,7` 却枚举不足 4 卡 → 驱动已开始丢卡）→ 09:53 nvidia-smi 显示
+  GPU 0 整卡 `ERR!`（温度/功率/利用率全 ERR）→ 10:23:22 **全机所有 CUDA 进程
+  同时消失**（我们的诊断与其他用户的两个训练一起死，无任何 Python traceback，
+  RAM 余 481 G 排除 OOM）→ ~10:30 宿主机重启（Xorg PID 变化、
+  Persistence-M Off→On），GPU 0 恢复
+- 影响：正式诊断 attempt1（GPU4，val 6800/11400 @6.7 q/s）与 attempt2（val 1200）
+  都是被它杀掉的，两次都不是本仓代码问题
+- **识别特征（下次先查这四条再怀疑自己）：** 死亡无 traceback、无 exit 日志；
+  **跨用户**全机 CUDA 进程同时消失；nvidia-smi 出现 `ERR!` 卡（复位前的化石证据）；
+  重启后 Xorg/persistenced PID 变化、Persistence-M 状态翻转
+- **规则：** 长任务（>1 h）按"可被随机杀"设计。`diagnose_arm.py` 的 receipt
+  幂等（`if not receipt.is_file()` 跳过已完成阶段）加流式进度日志是正确纪律，保留；
+  重投前先 `nvidia-smi` 确认无 `ERR!` 卡，再确认目标卡空闲
+
+**坑 2：代理沙箱把 cwd 强制到工作区根 + 禁写工作区外**
+
+- 现象：通过沙箱化 bash 启的 3 个 watcher 循环轮询**相对路径**永不触发（全部
+  空转到超时）；diagnose 启动时 `PermissionError: Errno13
+  reports/epst4d_v3/a3_joint/diagnostic`
+- 根因：沙箱强制 cwd = 工作区根 `/data1/lyq/code/StereoDETR`，而训练树
+  `/data1/lyq/code/.epst4d_v3` 在工作区**外**：相对路径解析错位 + mkdir 越界被拒
+- **规则：** 凡要在工作区外的树（`.epst4d_v3`、`.epst4d_r1a_frozen`、
+  `.epitube4d`）里跑的命令，一律非沙箱启动 + 命令内嵌 `cd <绝对路径>`；
+  watcher/轮询只用绝对路径。这类失败的共同形态是"静默失效"而不是报错，
+  所以 watcher 必须自带"到点无命中就报告"的兜底
+
+**坑 3：同一 arm 重复排队 launcher + 共享 `train.log` → 完成的训练看起来"失败"**
+
+- 现象：用户 shell 报 `[2] 退出 1`，`train.log` 尾部是 torchrun
+  `ChildFailedError`（4 个 rank 全 exitcode 1）——表面上"A3 训练失败了"
+- 事实：`training_log.jsonl` 末行是 `{"epoch": 12, "epoch_summary": true}`，
+  `epoch_012.pth` 07:29 落盘，`max_epochs: 12` → **job[1] 训练完整完成**。崩的是
+  job[2]：同配置**重复排队**的第二个 `wait_and_train.sh`，07:29:40 在 job[1] 释放
+  显卡的瞬间抢到卡启动，撞上已退化的驱动（坑 1 时间链第 1 条），CUDA init 即崩，
+  traceback **append 到同一个 `train.log`**，把成功信号盖住
+- 根因：(a) 同一 config 排两份 `wait_and_train` 无互斥；(b) 用 `train.log` 尾部
+  或退出码判断训练成败
+- **规则：** (1) 训练成败判据 = `training_log.jsonl` 的 `epoch_summary`
+  （`epoch == max_epochs`）**且**对应 checkpoint 落盘；`train.log` 尾部只是
+  "最后一个写入者的遗言"；(2) 同一 arm/config 不排双份 launcher，重投前
+  `pgrep -f wait_and_train` 查存量队列
+
+#### C82 — A3 联合臂 12 epoch 正式门：行人 strict 5×，车辆 strict −36.8% 触发 KILL；oracle 证明瓶颈在打分不在框
+
+- **类型：** `gate_verdict_kill`；session `522f14`，2026-08-26
+- **实验身份：** 训练 `configs/dsec3dod/a3_joint.yaml` 12/12 epoch（GPU 4–7 四卡，
+  657 batch/epoch，world_size 4），loss 11.09 → 3.04 单调下降、0 次 5× 中位数
+  spike，机械上完整无发散（epoch_001 22:10 → epoch_012 次日 07:29 落盘，
+  ~51 min/epoch）；判定 checkpoint `epoch_012.pth`（`570012434b30…ff79237`）；
+  诊断 `diagnose_arm.py` 按 C80 约定在 nvidia-smi GPU 7 上 10:47 → 13:24
+  （~2h37m）；收据 `reports/epst4d_v3/a3_joint/diagnostic/`
+  `{DASHBOARD, C2_BOTTLENECK, official_model, official_oracle}.json`，
+  epoch-1 冒烟收据另存并带 `SMOKE_ONLY_NOT_A_GATE.md` 防误读
+- **门判定：KILL（双条同触）** —— pass 未达：`veh_strict 3.9536 < 8.0215` 且
+  `ped_strict 0.943 < 3.6448`（门要求双类同过竞品公开 checkpoint 线）；
+  kill 触发：`veh_strict` 相对 R1 **−36.8%**（6.2552 → 3.9536，限额 20%）
+- **读数**（官方 moderate R40）：
+
+| 指标 | A3 | R1 基线 | 竞品公开 ckpt | A3 oracle（同框、3D-IoU 当分数） |
+|---|---:|---:|---:|---:|
+| 行人 3D strict | **0.943** | 0.190 | 3.645 | **3.653** |
+| 车辆 3D strict | **3.954** | 6.255 | 8.022 | **7.818** |
+| 行人 3D loose | 4.548 | 1.521 | — | 7.873 |
+| 车辆 3D loose | 25.664 | 25.205 | — | 22.739 |
+| 行人 2D | 11.103 | 5.755 | — | 10.143 |
+| 车辆 2D | 19.513 | 16.172 | — | 13.093 |
+
+- **机制解读（按缺陷面）：** (1) **行人轴真实移动**：strict 0.190→0.943（5×）、
+  loose 1.52→4.55、2D 5.76→11.10，框质量 0.234→0.364，0–10 m 证据覆盖
+  0.715→0.927，与 C79 的"10–20 m 行人亚像素物理可达"一致——SEIT/实例多样性这条轴
+  有效；(2) **车辆 strict 崩塌 = 打分崩塌，是 KILL 的直接原因**：2D/loose 不掉
+  反升（19.5 / 25.7）而 strict 6.26→3.95，定位还在、IoU 0.7 级精度的**分数**没了，
+  紧覆盖框中位分数 **0.547→0.129（−76%）**，Spearman 反而 0.332→0.452（排序略好、
+  绝对分数塌，好框被阈值滤掉）；(3) **oracle 把责任钉在打分而不是框**：行人
+  oracle strict **3.653 ≈ 竞品 3.6448**，即当前框集合里已经有竞品量级的行人
+  strict，被模型分数压到 0.943（oracle gap 2.71，比 R1 时代的 1.68 更大），车辆
+  oracle 7.82 ≈ 竞品 8.02；车辆 oracle 在 2D/loose 上反而低于模型分数（负 gap），
+  说明分数在宽判据上过拟合、在 strict 3D 上欠校准；(4) **行人证据边界向近距集中**：
+  0–10 m +0.21，但 10–20 m −0.05、20–30 m −0.08、30 m+ −0.05 全段回退——copy-paste
+  剂量把覆盖挪到了近处；(5) **远距行人可证伪线仍未过**：val/train 远行人比
+  0.0052→0.0280，仍 < 0.05 门（train_mean 0.680 对 val_mean 0.019），与 C79 推论
+  一致；(6) 梯度冲突与合成伪影两面本轮 `samples=0`，训练日志未记录，无读数
+- **对后续臂的约束：** (1) A3 不能作为联合胜出配方复投，车辆 −37% 是硬 KILL；
+  (2) 下一刀应打**车辆 strict 的分数校准/深度精度**，不是加行人剂量（C78：竞品
+  8 行人/样本，A3 的 6 不激进，且剂量不解释车辆掉点）；(3) 行人 strict 的主瓶颈
+  已被 oracle 定位为**打分**，score head / 质量估计 / 排序校准是下一臂第一优先级；
+  (4) >20–25 m 行人不设主张（C79 的物理边界）
+- **限制：** 单臂单 seed；两个缺陷面缺观测；oracle 用官方 3D-IoU 重排序，是
+  "框存在性"上界，不含 NMS 交互的反事实
+
 ### 10. 永久关闭分支的定量依据
 
 以下数字来自 receipts，是“不得重开”的判据。任何重开申请必须先用新数字推翻对应行。
@@ -2313,6 +2816,17 @@ augmentation, and it is the one we are training right now.** R1 was chosen
 before this differential was run, on our own generalization evidence. That it
 lands on the published baseline's sole augmentation is independent support for
 the choice.
+
+> **2026-08-26 更正（C78，本附录唯一的事后批注）：** 上面这段的作用域必须收窄为
+> "唯一的**几何变换**增广"。本节当时只枚举了 `stereo_data_augmentor.py` 的 crop/flip 段，
+> 漏掉 DB-sampler 阶段——`dsec_dataset_fused_event_4_train_val200.yaml` 第 42–49 行的
+> `stereo_event_gt_sampling` 以 `SAMPLE_GROUPS: ['Vehicle:4', 'Pedestrian:8']`
+> 每样本粘贴至多 8 个行人事件实例（`filter_by_min_points` 行人门槛仅 1），实现在
+> `liga/datasets/augmentor/stereo_event_database_sampler.py`。因此配方差分表要多一行
+> **数据侧差异**（与标签分配同级），而 SEIT 的定位从"我们独有的新增广"改为"补齐配方
+> 缺口的更强形态"（立体一致、深度重缩放、密度补偿、遮挡语义、覆盖率守卫是相对竞品
+> sampler 的增量）。规则见 C78：对竞品做配方差分时，数据管线的每个 stage 列表都必须
+> 逐项枚举后才能下"没有 X"的结论。
 
 #### 2.2 Dense multi-positive focal assignment — **VERIFIED HERE**
 

@@ -1,10 +1,12 @@
-# A3 臂结果与 debug 结论（session 522f14，待负责人合入账本）
+# A3 臂结果与 debug 结论（session 522f14，**已于 2026-08-27 合入账本**）
 
 **配套文档：** `docs/proposals/C78_C82_LEDGER_ENTRIES_DRAFT.md`（本会话五条账本
 条目全文）、`docs/proposals/A1_A2_RESULTS_AND_DEBUG_CONCLUSIONS.md`（前序臂，
 其 §6 预注册了 A3 的证据链，本文档闭环）、`docs/proposals/SEIT_PREREG_DRAFT.md`。
 
-本文件是草稿，不直接修改 `docs/EXPERIMENTS_AND_PITFALLS.md`。
+**合入状态：** KILL 判定与 oracle 归因进 `docs/EXPERIMENTS_AND_PITFALLS.md`
+§3.7 与附录 B 的 C82 条目，读数进其第 2 节记分板。本文件保留为逐字原件，
+未被删除；按账本第 7 节的事实优先级，本文件高于账本汇总。
 
 ---
 

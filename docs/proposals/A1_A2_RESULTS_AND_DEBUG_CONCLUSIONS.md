@@ -1,9 +1,11 @@
-# A1/A2 臂结果与 debug 结论（待负责人合入账本）
+# A1/A2 臂结果与 debug 结论（**已于 2026-08-27 合入账本**）
 
 **配套预注册：** `docs/proposals/P2B_HYBRID_MATCHING_PREREG_DRAFT.md`（A1）、
 `docs/proposals/SEIT_PREREG_DRAFT.md`（A2）、`docs/proposals/C76_C77_LEDGER_ENTRIES_DRAFT.md`（训练前零训练验证）。
 
-本文件是草稿，不直接修改 `docs/EXPERIMENTS_AND_PITFALLS.md`。
+**合入状态：** 读数进 `docs/EXPERIMENTS_AND_PITFALLS.md` 第 2 节两张记分板，
+臂设计、被否决假设、实现缺陷与 H4 未决状态进其 §3.7。本文件保留为逐字原件，
+未被删除；按账本第 7 节的事实优先级，本文件高于账本汇总。
 
 ---
 

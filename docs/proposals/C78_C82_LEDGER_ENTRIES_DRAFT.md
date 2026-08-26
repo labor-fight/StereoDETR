@@ -1,9 +1,12 @@
-# 账本条目草稿：C78–C82（debug session 522f14，待负责人合入）
+# 账本条目：C78–C82（debug session 522f14，**已于 2026-08-27 合入账本**）
 
 依据：session 522f14 的 NDJSON 证据日志（395 行，已随会话清理——数值读数
 以本文表格为准，装置为 `tools/r1_audit/probe_subpixel_disparity.py` 可复跑）与
 诊断收据 `/data1/lyq/code/.epst4d_v3/reports/epst4d_v3/a3_joint/diagnostic/`（留存）。
-本文件是草稿，不直接修改 `docs/EXPERIMENTS_AND_PITFALLS.md`。
+
+**合入状态：** C78–C82 五条全文进 `docs/EXPERIMENTS_AND_PITFALLS.md` 附录 B，
+概览进其 §3.9、索引进 §4.4；C78 另在附录 A 与附录 C §2.1 就地加了批注。
+本文件保留为逐字原件，未被删除；按账本第 7 节的事实优先级，本文件高于账本汇总。
 
 **runId 索引**（会话内各轮运行的内容映射）：
 

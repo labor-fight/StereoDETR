@@ -5,3 +5,8 @@ scripts/004*
 __pycache__/
 .cursor/
 .serena/
+
+# 数据 manifest 实体（135 MB）。唯一数据入口，事件树与开发树按 symlink 指向它，
+# 但按 reports/repo_contract.md §4 不进 git；换机器时从
+# /data1/lyq/stereodetr_docs_backup_20260824/ 恢复。
+lib/datasets/dsec3dod/manifest/

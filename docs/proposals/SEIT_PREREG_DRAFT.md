@@ -1,4 +1,12 @@
-# SEIT 预注册草稿（ARM-AUG 强化形态，待负责人裁决后冻结）
+# SEIT 预注册（ARM-AUG 强化形态，**已执行 = A2/A3 臂，Gate FAIL / KILL**）
+
+**执行状态：** 本预注册于 2026-08-25 冻结并作为 A2 臂执行（FAIL：Veh
+6.2552→5.0090、Ped 0.1896→0.6686，天花板 +78% 而排序效率 −17.9%），随后以
+`max_pedestrians_per_sample: 6` 的加大剂量进入 A3 联合臂（KILL：Veh −36.8%）。
+结果见 `A1_A2_RESULTS_AND_DEBUG_CONCLUSIONS.md` 与
+`A3_RESULTS_AND_DEBUG_CONCLUSIONS.md`，已合入 `docs/EXPERIMENTS_AND_PITFALLS.md`
+§3.7 与附录 B 的 C82。SEIT 现为**预备役**：仅当 P6 后行人天花板仍不足时，按 C54
+最小类门与 C82 约束单独预注册重开。本文件按预注册惯例只读，不因结果改写。
 
 Stereo-consistent Event Instance Transplant：立体一致的事件实例移植
 数据引擎。打击目标 = L1 实例稀缺（134 行人身份 → 泛化崩塌，T1/C66）。
