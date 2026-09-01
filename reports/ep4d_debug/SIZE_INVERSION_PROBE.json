@@ -1,0 +1,57 @@
+{
+  "matched_vehicles": 11678,
+  "match_rule": "best 3D IoU >= 0.10",
+  "inputs": "predicted bbox width, predicted z, predicted alpha (no GT inputs)",
+  "model_regressed_length": {
+    "pearson_vs_gt_length": 0.8240970605746798,
+    "spearman": 0.3803029041629971,
+    "n": 11678,
+    "abs_err_median_m": 0.41051167767333996
+  },
+  "class_mean_baseline": {
+    "pearson_vs_gt_length": 2.2336429916967063e-17,
+    "spearman": NaN,
+    "n": 11678,
+    "abs_err_median_m": 0.3494060000000001
+  },
+  "inversion_wprior": {
+    "pearson_vs_gt_length": 0.21940904026374078,
+    "spearman": 0.27130846866514935,
+    "n": 11571,
+    "abs_err_median_m": 2.0374650392537452
+  },
+  "inversion_wpred": {
+    "pearson_vs_gt_length": 0.20617339745404703,
+    "spearman": 0.2669495223226667,
+    "n": 11571,
+    "abs_err_median_m": 2.0246689627453565
+  },
+  "inversion_ztrue_diag": {
+    "pearson_vs_gt_length": 0.30610977587487037,
+    "spearman": 0.29625193231452573,
+    "n": 11571,
+    "abs_err_median_m": 2.03265501909346
+  },
+  "inversion_wprior_by_angle": {
+    "sin_alpha_0.3-0.6": {
+      "n": 1429,
+      "pearson": 0.020550647374124,
+      "spearman": 0.034821248059244386,
+      "abs_err_median_m": 1.3509683436983284
+    },
+    "sin_alpha_0.6-0.85": {
+      "n": 199,
+      "pearson": 0.1596614789397478,
+      "spearman": 0.28205993007740254,
+      "abs_err_median_m": 2.3774975564098604
+    },
+    "sin_alpha_0.85-1.01": {
+      "n": 9943,
+      "pearson": 0.5104174506601227,
+      "spearman": 0.3309129534680113,
+      "abs_err_median_m": 2.07113982801902
+    }
+  },
+  "solvable_fraction_sin_gt_030": 0.9908374721698922,
+  "adjudication_rule": "inversion clearly above model 0.59 corr -> agent3 (miswired head); at/below cross-fit ceiling 0.567 -> agent5 (inputs exhausted)"
+}

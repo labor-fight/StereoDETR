@@ -1,0 +1,50 @@
+{
+  "probe": "seit_dense_depth_audit",
+  "date": "2026-08-31",
+  "session": "142ed9",
+  "config": "/data1/lyq/code/.ep4d_q1/configs/dsec3dod/q12_seit_long36.yaml",
+  "n_frames": 400,
+  "frames_with_transplant": 107,
+  "bbox_interp_guard": {
+    "real_ped_aspect_median": 0.4414756722247687,
+    "instrument_valid": true
+  },
+  "seit_pedestrian": {
+    "boxes": 112,
+    "boxes_with_ge5_valid_px": 110,
+    "coverage": 0.9821428571428571,
+    "valid_px_median": 227.0,
+    "median_abs_diff_m": 11.2556471824646,
+    "p90_abs_diff_m": 25.155263710021977,
+    "median_signed_diff_m": 0.7118856906890869,
+    "frac_behind_median": 0.5750770905133322,
+    "exceeds_tolerance": true
+  },
+  "seit_vehicle": {
+    "boxes": 67,
+    "boxes_with_ge5_valid_px": 66,
+    "coverage": 0.9850746268656716,
+    "valid_px_median": 1048.0,
+    "median_abs_diff_m": 8.69835615158081,
+    "p90_abs_diff_m": 18.295254707336426,
+    "median_signed_diff_m": -0.42404937744140625,
+    "frac_behind_median": 0.4253285304516043,
+    "exceeds_tolerance": true
+  },
+  "real_pedestrian_comparison": {
+    "boxes": 242,
+    "boxes_with_ge5_valid_px": 238,
+    "coverage": 0.9834710743801653,
+    "valid_px_median": 423.5,
+    "median_abs_diff_m": 1.3263392448425293,
+    "p90_abs_diff_m": 4.132749176025392,
+    "median_signed_diff_m": 0.5485668182373047,
+    "frac_behind_median": 0.7829611908559277,
+    "exceeds_tolerance": true
+  },
+  "frozen_rules": {
+    "material": "seit-ped coverage>=0.30 and median_abs_diff>0.243",
+    "guard": "real ped aspect median < 0.8 else INVALID_INSTRUMENT"
+  },
+  "verdict": "MATERIAL"
+}

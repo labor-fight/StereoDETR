@@ -1,0 +1,60 @@
+{
+  "probe": "l3_vehicle_offset_gate",
+  "date": "2026-09-01",
+  "session": "142ed9",
+  "table": "/data1/lyq/code/.epitube4d/reports/ep4d_evidence/rescore/q12e012_full.npz",
+  "population": {
+    "matched_vehicles": 11635,
+    "all_vehicle_rows": 19091,
+    "resolvable_peak_coverage": 0.6094
+  },
+  "medians_m": {
+    "A_model_baseline": 0.38614169019365896,
+    "B_raw_measurement": 1.7068673914369086,
+    "C0_constant_offset_crossfold": 0.8219631494685125,
+    "C_conditional_offset_crossfold": 4.095775107053095
+  },
+  "offset_fit": {
+    "r2_per_fold": [
+      0.8814,
+      0.88
+    ],
+    "offset_true_median": 1.4791561713584311,
+    "offset_true_iqr": [
+      0.7818144900704436,
+      2.5959059002128146
+    ]
+  },
+  "binned_conditional_error": {
+    "0-15": [
+      5.421290264133717,
+      3310
+    ],
+    "15-25": [
+      2.756786498681876,
+      4687
+    ],
+    "25-45": [
+      5.159561524803484,
+      3638
+    ]
+  },
+  "binned_baseline_error": {
+    "0-15": [
+      0.227839120999052,
+      3310
+    ],
+    "15-25": [
+      0.36643697231187033,
+      4687
+    ],
+    "25-45": [
+      0.7477963017744642,
+      3638
+    ]
+  },
+  "frozen_gate": "C <= 0.90 * A launches the arm; else vehicle offset head closed",
+  "gate_pass": false,
+  "verdict": "VEHICLE_OFFSET_HEAD_CLOSED",
+  "scope": "DIAGNOSTIC_FINDING; no AP claim; pedestrian-side QC-EER unaffected"
+}

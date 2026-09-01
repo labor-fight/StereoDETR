@@ -1,0 +1,137 @@
+{
+  "train": {
+    "split": "train",
+    "intervals": 4200,
+    "matched_pairs": 10174,
+    "ambiguous_pairs": 358,
+    "unmatched_first_frame_objects": 514,
+    "first_frame_objects": 10688,
+    "offsets_compared": [
+      0,
+      9
+    ],
+    "matching": "class-gated mutual NN, 2.0 m gate, ambiguity margin 0.5 m",
+    "Vehicle": {
+      "n": 7980,
+      "0-20m": {
+        "n": 3244,
+        "abs_dz_median_m": 0.5958735557865076,
+        "abs_dz_p90_m": 0.9950186173505473,
+        "signed_dz_median_m": -0.5952022916466548,
+        "fraction_approaching": 0.9244759556103576
+      },
+      "20-40m": {
+        "n": 3803,
+        "abs_dz_median_m": 0.6008142899440791,
+        "abs_dz_p90_m": 1.0347383983243787,
+        "signed_dz_median_m": -0.6008142899440791,
+        "fraction_approaching": 0.8722061530370759
+      },
+      "40-60m": {
+        "n": 927,
+        "abs_dz_median_m": 0.5902163045965736,
+        "abs_dz_p90_m": 1.0331245905769577,
+        "signed_dz_median_m": -0.5902163045965736,
+        "fraction_approaching": 0.7206040992448759
+      },
+      "all_abs_dz_median_m": 0.5976823892925598,
+      "all_abs_dz_p90_m": 1.0245145274641434,
+      "all_signed_dz_median_m": -0.5974405743618423
+    },
+    "Pedestrian": {
+      "n": 2054,
+      "0-20m": {
+        "n": 780,
+        "abs_dz_median_m": 0.5808434770062352,
+        "abs_dz_p90_m": 1.006524206912351,
+        "signed_dz_median_m": -0.5808434770062352,
+        "fraction_approaching": 0.9730769230769231
+      },
+      "20-40m": {
+        "n": 1055,
+        "abs_dz_median_m": 0.6213477491210426,
+        "abs_dz_p90_m": 1.0360754467793485,
+        "signed_dz_median_m": -0.6213477491210426,
+        "fraction_approaching": 0.9829383886255925
+      },
+      "40-60m": {
+        "n": 219,
+        "abs_dz_median_m": 0.6859101547147262,
+        "abs_dz_p90_m": 1.0134038331695423,
+        "signed_dz_median_m": -0.6859101547147262,
+        "fraction_approaching": 1.0
+      },
+      "all_abs_dz_median_m": 0.6033201773002252,
+      "all_abs_dz_p90_m": 1.025276465404916,
+      "all_signed_dz_median_m": -0.6033201773002252
+    }
+  },
+  "val": {
+    "split": "val",
+    "intervals": 1140,
+    "matched_pairs": 2900,
+    "ambiguous_pairs": 63,
+    "unmatched_first_frame_objects": 81,
+    "first_frame_objects": 2981,
+    "offsets_compared": [
+      0,
+      9
+    ],
+    "matching": "class-gated mutual NN, 2.0 m gate, ambiguity margin 0.5 m",
+    "Vehicle": {
+      "n": 2245,
+      "0-20m": {
+        "n": 903,
+        "abs_dz_median_m": 0.5972335312841022,
+        "abs_dz_p90_m": 0.9948484120906976,
+        "signed_dz_median_m": -0.5948531061873936,
+        "fraction_approaching": 0.9313399778516057
+      },
+      "20-40m": {
+        "n": 1053,
+        "abs_dz_median_m": 0.5746813184080999,
+        "abs_dz_p90_m": 1.0337673237477134,
+        "signed_dz_median_m": -0.5700639263844387,
+        "fraction_approaching": 0.8850902184235517
+      },
+      "40-60m": {
+        "n": 281,
+        "abs_dz_median_m": 0.5709480155359614,
+        "abs_dz_p90_m": 0.9592407087216301,
+        "signed_dz_median_m": -0.4468813323160319,
+        "fraction_approaching": 0.8362989323843416
+      },
+      "all_abs_dz_median_m": 0.5863463591993927,
+      "all_abs_dz_p90_m": 1.0205160067322114,
+      "all_signed_dz_median_m": -0.5816187201430694
+    },
+    "Pedestrian": {
+      "n": 566,
+      "0-20m": {
+        "n": 141,
+        "abs_dz_median_m": 0.32909611331233357,
+        "abs_dz_p90_m": 0.8810182083035762,
+        "signed_dz_median_m": -0.32909611331233357,
+        "fraction_approaching": 1.0
+      },
+      "20-40m": {
+        "n": 325,
+        "abs_dz_median_m": 0.6624879310676022,
+        "abs_dz_p90_m": 1.0180327318430706,
+        "signed_dz_median_m": -0.6624879310676022,
+        "fraction_approaching": 1.0
+      },
+      "40-60m": {
+        "n": 100,
+        "abs_dz_median_m": 0.7846256410486347,
+        "abs_dz_p90_m": 0.9473522039905283,
+        "signed_dz_median_m": -0.7846256410486347,
+        "fraction_approaching": 0.97
+      },
+      "all_abs_dz_median_m": 0.5785744300671016,
+      "all_abs_dz_p90_m": 1.0036892449113441,
+      "all_signed_dz_median_m": -0.5785744300671016
+    }
+  },
+  "kill_line": "pedestrian all_abs_dz_median_m < 0.10 => T1 dropped"
+}

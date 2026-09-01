@@ -1,0 +1,25 @@
+{
+  "n": 8,
+  "step_range": [
+    50,
+    400
+  ],
+  "clip_threshold": 0.1,
+  "clip_rate": 1.0,
+  "norm_quantiles_preclip": {
+    "p10": 11.986615943908692,
+    "p25": 13.689374208450317,
+    "p50": 14.801258563995361,
+    "p75": 15.986242771148682,
+    "p90": 18.04092903137207,
+    "p99": 19.798699302673338
+  },
+  "median_over_clip_ratio": 148.0125856399536,
+  "semantics": "gradient_norm is the return of clip_grad_norm_, i.e. pre-clip global norm",
+  "adjudication": {
+    "optimizer": "AdamW (config q12 optimizer.type=adamw, trainer enforces AdamW-only)",
+    "verdict": "DEMOTED: Adam-family updates are invariant to constant gradient rescaling (m and sqrt(v) cancel), so clip-rate 1.0 is NOT a 150x step attenuation; residual effect is per-step variable rescaling (norm 14-27, ~2x) which mildly damps high-norm steps relative to low-norm ones",
+    "historical_context": "R1 epochs 1-12 clip_rate 1.000 (median norm 19.3-19.9), q8_fast_anneal likewise (17.7-27.0) - property of the whole recipe family, not Q12",
+    "action": "not an arm; keep as recipe documentation; competitor trains without clipping (their clip code commented out)"
+  }
+}

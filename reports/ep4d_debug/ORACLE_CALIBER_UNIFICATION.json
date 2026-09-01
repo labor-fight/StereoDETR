@@ -1,0 +1,24 @@
+{
+  "probe": "oracle_caliber_unification",
+  "date": "2026-08-31",
+  "session": "142ed9",
+  "question": "H_B conflict: view-limited oracle (A3 Ped 4.2193, f223df caliber) exceeded the c2 full-candidate oracle (3.653) although the former was believed to be a lower bound of the latter.",
+  "constructions": {
+    "view_limited_f223df": "rescore ONLY the boxes the model reported (22,307 for A3) by max same-class oriented 3D IoU; evaluate; tools: oracle_after_oerd.py / c2 '_oracle_rescored' semantics applied to the reported pickle",
+    "c2_full_candidate": "decode with topk = query_count x classes (full proposal pool, c2_bottleneck_diagnostic.py:274-285), rescore by IoU (:468-492), trim to the model's per-image box budget with threshold 0.0 (:492)"
+  },
+  "runtime_evidence": {
+    "box_set": "A3 diagnostic, first 1500 images, identical budget both universes",
+    "boxes_each": 3505,
+    "near_duplicate_pairs_2dIoU_gt_0.9": {"model_view": 341, "c2_oracle_view": 497},
+    "duplicate_rate": {"model_view": 0.0973, "c2_oracle_view": 0.1418},
+    "reading": "c2's top-IoU-from-full-pool fills the fixed budget with near-duplicates of easy objects (+46% duplicate pairs), displacing distinct detections; recall at the tail drops, so the 'oracle' can sit BELOW the view-limited oracle. Same mechanism family as H4's 'decoded-view redundancy poisons oracle precision'."
+  },
+  "resolution": "NO_BUG_DIFFERENT_ESTIMANDS: neither number is wrong; they answer different questions. The view-limited oracle answers 'how good is the reported box set if ranked perfectly' (the quantity the ranking-efficiency decomposition needs); the c2 oracle answers 'best-IoU-K from the full pool under the model's budget' which is neither an upper nor a lower bound of the former.",
+  "frozen_decision": [
+    "Fig.1 and ALL cross-arm oracle/efficiency numbers use the view-limited (reported-box) caliber exclusively, labelled 'view-limited oracle (f223df caliber)'.",
+    "c2 oracle values are retired from cross-caliber citation; they remain valid only for intra-c2 historical comparisons (A-series scoreboard rows), labelled 'c2 caliber'.",
+    "Any oracle comparison must also report per-image box counts (H4 rule: oracle only comparable at matched counts AND matched universe construction)."
+  ],
+  "ledger_effect": "H_B INCONCLUSIVE (definition confound) is upgraded to RESOLVED_DIFFERENT_ESTIMANDS with runtime evidence; the f223df-caliber pedestrian oracle 6.6329 (A3+OERD) stands as the ranking-efficiency denominator."
+}

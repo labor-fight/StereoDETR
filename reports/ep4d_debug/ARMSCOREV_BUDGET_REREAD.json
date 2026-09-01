@@ -1,0 +1,46 @@
+{
+  "probe": "armscorev_budget_reread",
+  "date": "2026-08-31",
+  "session": "142ed9",
+  "inputs": {
+    "a1": "/data1/lyq/rep4d_archive/epst4d_v3_20260827/reports/epst4d_v3/a1_hybrid_matching/diagnostic/predictions_model.pkl",
+    "r1": "/data1/lyq/code/.epitube4d/reports/episet4d/p0/restored/predictions_model.pkl",
+    "a1_sha256_16": "7f5ea7c07c7a571f",
+    "r1_sha256_16": "9f6b8be90fa9aef0"
+  },
+  "frozen_rules": {
+    "instrument": "|a1_ctrl-4.2104|<=0.02 and |r1_ctrl-6.2552|<=0.02",
+    "budget_artifact": "a1_trim_veh >= 5.9424 (0.95xR1)",
+    "real_crash": "a1_trim_veh <= 5.0042 (0.80xR1)"
+  },
+  "box_counts": {
+    "a1": {
+      "Pedestrian": 5798,
+      "Vehicle": 20907
+    },
+    "r1": {
+      "Vehicle": 17145,
+      "Pedestrian": 2644
+    },
+    "a1_trimmed": {
+      "Vehicle": 14338,
+      "Pedestrian": 1948
+    }
+  },
+  "results": {
+    "a1_control": {
+      "veh": 4.210353748221637,
+      "ped": 0.7218448564834546
+    },
+    "r1_control": {
+      "veh": 6.255211479481247,
+      "ped": 0.18956456456456455
+    },
+    "a1_trimmed": {
+      "veh": 4.325721761755518,
+      "ped": 1.0332425824958635
+    }
+  },
+  "verdict": "REAL_CRASH",
+  "scope": "DIAGNOSTIC_FINDING; trimmed cells are not official AP"
+}
